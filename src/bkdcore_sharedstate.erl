@@ -183,7 +183,7 @@ reload() ->
 						global_precommiting_from = [],
 						global_update_pid,
 						global_ping_nodes,
-						global_ping_pos,
+						global_ping_pos = 0,
 						global_do_exchange = false,
 						exchange_global_state_pid,
 						find_global_state_pid,
@@ -1113,16 +1113,21 @@ handle_info(ping_global,P) ->
 		false ->
 			% Every second ping a different node. If a node gets disconnected for a period and a state change occurs,
 			%  they might have missed it. Slowly traversing nodes with pings will cause it to eventually get the state change.
-			Node = element((P#dp.global_ping_pos rem tuple_size(P#dp.global_ping_nodes))+1,P#dp.global_ping_nodes),
-			spawn(fun() -> 
-					case bkdcore:rpc(Node,{?MODULE,ping,[bkdcore:node_name(),P#dp.globalversion]}) of
-						uninitialized ->
-							bkdcore:rpc(Node,{?MODULE,ping,[bkdcore:node_name(),P#dp.globalversion,P#dp.globalstate]});
-						_ ->
-							ok
-					end
-				end),
-			DoExchange = false
+			case P#dp.global_ping_nodes of
+				{} ->
+					DoExchange = false;
+				_ ->
+					Node = element((P#dp.global_ping_pos rem tuple_size(P#dp.global_ping_nodes))+1,P#dp.global_ping_nodes),
+					spawn(fun() -> 
+							case bkdcore:rpc(Node,{?MODULE,ping,[bkdcore:node_name(),P#dp.globalversion]}) of
+								uninitialized ->
+									bkdcore:rpc(Node,{?MODULE,ping,[bkdcore:node_name(),P#dp.globalversion,P#dp.globalstate]});
+								_ ->
+									ok
+							end
+						end),
+					DoExchange = false
+			end
 	end,
 	{noreply,P#dp{global_ping_pos = P#dp.global_ping_pos+1, global_do_exchange = DoExchange}};
 handle_info({stop},P) ->
@@ -1349,7 +1354,7 @@ global_to_changecheck(Global) ->
 						undefined ->
 							ok;
 						_ ->
-							bkdcore_changecheck:setcfg(butil:tolist(Key),Val)
+							ok = bkdcore_changecheck:setcfg(butil:tolist(Key),Val)
 					end || {{App,Key},Val} <- Global, App /= bkdcore];
 				_ ->
 					ok

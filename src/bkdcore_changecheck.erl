@@ -23,7 +23,7 @@ stop() ->
 reload() ->
 	gen_server:call(?MODULE, {reload_module}).
 	
--record(cdat, {dict,paths = [], fswatcher}).
+-record(cdat, {dict,paths = [], dist_dir = [],fswatcher}).
 -define(R2P(Record), butil:rec2prop(Record, record_info(fields, cdat))).
 -define(P2R(Prop), butil:prop2rec(Prop, cdat, #cdat{}, record_info(fields, cdat))).
 	
@@ -139,7 +139,7 @@ init(_) ->
 	end,
 	RootPath = butil:project_rootpath(),
 	Paths = folders(),
-	{_,P} = handle_info({check_changes},#cdat{dict = butil:ds_new(dict), paths = Paths}),
+	{_,P} = handle_info({check_changes},#cdat{dict = butil:ds_new(dict), paths = Paths, dist_dir = RootPath ++ "/priv/code_dist"}),
 
 	case have_fswatcher() of
 		true ->
@@ -563,7 +563,8 @@ setcfg(Name,Obj) ->
 								{Mol,Fol,Aol} ->
 									spawn(Mol,Fol,Aol)
 							end
-					end
+					end,
+					ok
 			end,	
 	case catch F() of
 		ok ->
