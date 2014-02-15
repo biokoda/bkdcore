@@ -2562,7 +2562,7 @@ tobin(P) when is_list(P) ->
 tobin(P) when is_atom(P) ->
 	atom_to_binary(P,latin1);
 tobin(P) when is_integer(P) ->
-	tobin(integer_to_list(P));
+	integer_to_binary(P);
 tobin(P) when is_float(P) ->
 	tobin(bmochinum:digits(P)).
 
@@ -2573,7 +2573,7 @@ toatom(P) when is_list(P) ->
 toatom(P) when is_atom(P) ->
 	P.
 toint(<<_/binary>> = P) ->
-	list_to_integer(binary_to_list(P));
+	binary_to_integer(P);
 toint([_|_] = P) ->
 	list_to_integer(P);
 toint(P) when is_integer(P) ->
@@ -2585,7 +2585,7 @@ tofloat(P) when is_integer(P) ->
 tofloat(P) when is_float(P) ->
 	P;
 tofloat(P) when is_binary(P) ->
-	tofloat(binary_to_list(P));
+	binary_to_float(P);
 tofloat(P) when is_list(P) ->
 	Str = string:join(string:tokens(P,","),"."),
 	case string:str(Str,".") of
