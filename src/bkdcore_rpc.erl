@@ -47,7 +47,22 @@ call(Node,Pid,Msg) ->
 start() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 start(Node) ->
-	gen_server:start(?MODULE, Node, []).
+	Ref = make_ref(),
+	case gen_server:start(?MODULE, [{self(),Ref},Node], []) of
+		{ok,Pid} ->
+			{ok,Pid};
+		{error,normal} ->
+			receive
+				{Ref,name_exists} ->
+					{error,name_exists};
+				{Ref,Err} ->
+					{error,Err}
+			after 0 ->
+				{error,normal}
+			end;
+		E ->
+			E
+	end.
 
 stop() ->
 	gen_server:call(?MODULE, stop).
@@ -60,14 +75,16 @@ stop(Node) ->
 
 
 -record(dp,{sock,sendproc,calln = 0,callsininterval = 0, callcount = 0,
-			nactive = 0,permanent = false, direction,transport,
-			isinit = false}).
+			permanent = false, direction,transport,
+			isinit = false, connected_to}).
 
 handle_call({call,permanent},_,P) ->
 	{reply,ok,P#dp{permanent = true}};
 handle_call({call,Msg},From,P) ->
 	Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
 	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount + 1});
+handle_call({reply,Bin},From,P) ->
+	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount - 1});
 handle_call({sendbin,Bin},_,P) ->
 	case Bin of
 		<<First:16384/binary,Rem/binary>> ->
@@ -78,8 +95,7 @@ handle_call({sendbin,Bin},_,P) ->
 	Packet = [<<(P#dp.calln):24/unsigned,(byte_size(Bin)):32/unsigned>>,First],
 	ok = gen_tcp:send(P#dp.sock,Packet),
 	{noreply,P#dp{calln = P#dp.calln + 1,
-				callsininterval = P#dp.callsininterval + 1,
-				nactive = P#dp.nactive + 1}};
+				callsininterval = P#dp.callsininterval + 1}};
 handle_call({print_info}, _, P) ->
 	io:format("~p~n", [P]),
 	{reply, ok, P};
@@ -98,7 +114,12 @@ handle_info({tcp,_S,<<Key:40/binary>>},#dp{direction = receiver,isinit = false} 
 handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 	case get(Id) of
 		undefined ->
-			Active = P#dp.nactive + 1,
+			case P#dp.direction of
+				receiver ->
+					CallCount = P#dp.callcount + 1;
+				_ ->
+					CallCount = P#dp.callcount
+			end,
 			CallsInInt = P#dp.callsininterval + 1,
 			Home = self(),
 			<<Size:32/unsigned,Body/binary>> = SizeAndBody,
@@ -111,7 +132,7 @@ handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 			put(Id,{Size - byte_size(Body),ProcPid}),
 			put(ProcPid,Id);
 		{SizeRem,Pid} ->
-			Active = P#dp.nactive,
+			CallCount = P#dp.callcount,
 			CallsInInt = P#dp.callsininterval,
 			case SizeRem - byte_size(SizeAndBody) =< 0 of
 				true ->
@@ -122,9 +143,8 @@ handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 			end
 	end,
 	inet:setopts(P#dp.sock,[{active, once}]),
-	{noreply,P#dp{calln = P#dp.calln + 1, 
-					callsininterval = CallsInInt,
-					nactive = Active}};
+	{noreply,P#dp{calln = P#dp.calln + 1, callcount = CallCount,
+					callsininterval = CallsInInt}};
 handle_info({continue,N,Bin},P) ->
 	case Bin of
 		<<First:16384/binary,Rem/binary>> ->
@@ -141,13 +161,8 @@ handle_info({'DOWN',_Monitor,_,Pid,_Reason},P) ->
 		Id ->
 			erase(Pid),
 			erase(Id),
-			{noreply,P#dp{nactive = P#dp.nactive - 1}}
+			{noreply,P}
 	end;
-% handle_info({tcp,_,Bin},P) ->
-% 	{From,Msg} = binary_to_term(Bin),
-% 	gen_server:reply(From,Msg),
-% 	inet:setopts(P#dp.sock,[{active, once}]),
-% 	{noreply,P#dp{nactive = P#dp.nactive - 1}};
 handle_info({tcp_closed,_},#dp{direction = receiver} = P) ->
 	[exit(Pid,tcp_closed) || {_Id,{_,Pid}} <- get(), is_pid(Pid)],
 	{stop,normal,P};
@@ -155,8 +170,17 @@ handle_info({tcp_closed,_},P) ->
 	{stop,normal,P};
 handle_info(timeout,P) ->
 	case P#dp.callsininterval of
-		0 when P#dp.nactive == 0, P#dp.permanent == false, P#dp.callcount == 0 ->
-			{stop,normal,P};
+		0 when P#dp.permanent == false, P#dp.callcount == 0, P#dp.direction == sender ->
+			% If nothing is going on, first unreg,
+			%  then in next timeout die off. To prevent any race conditions.
+			case P#dp.connected_to of
+				undefined ->
+					{stop,normal,P};
+				_ ->
+					distreg:unreg({bkdcore,P#dp.connected_to}),
+					erlang:send_after(5000,self(),timeout),
+					{noreply,P#dp{connected_to = undefined}}
+			end;
 		_ ->
 			garbage_collect(),
 			erlang:send_after(5000,self(),timeout),
@@ -180,11 +204,11 @@ init(Ref, Socket, Transport, _Opts) ->
 	ok = ranch:accept_ack(Ref),
 	ok = Transport:setopts(Socket, [{active, once},{packet,4},{keepalive,true},{send_timeout,10000}]),
 	erlang:send_after(5000,self(),timeout),
-	gen_server:enter_loop(?MODULE, [], #dp{sock = Socket, transport = Transport}).
+	gen_server:enter_loop(?MODULE, [], #dp{direction = receiver,sock = Socket, transport = Transport}).
 
 init([]) ->
 	{ok,#dp{direction = receiver}};
-init(Node) ->
+init([{From,FromRef},Node]) ->
 	case distreg:reg({bkdcore,Node}) of
 		ok ->
 			{IP,Port} = bkdcore:node_address(Node),
@@ -192,12 +216,14 @@ init(Node) ->
 				{ok,S} ->
 					ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
 					erlang:send_after(5000,self(),timeout),
-					{ok, #dp{sock = S, direction = sender}};
+					{ok, #dp{sock = S, direction = sender, connected_to = Node}};
 				_Err ->
+					From ! {FromRef,_Err},
 					{stop,normal}
 			end;
 		name_exists ->
-			{stop,name_exists}
+			From ! {FromRef,name_exists},
+			{stop,normal}
 	end.
 
 
@@ -225,12 +251,12 @@ exec(Home,Msg) ->
 									Mod /= io, Mod /= os, Mod /= erlang, Mod /= code ->
 			case catch apply(Mod,Func,Param) of
 				X ->
-					gen_server:call(Home,{sendbin,term_to_binary({rpcreply,{From,X}},[compressed,{minor_version,1}])})
+					gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,X}},[compressed,{minor_version,1}])})
 			end;
 		{From,ping} ->
-			gen_server:call(Home,{sendbin,term_to_binary({rpcreply,{From,pong}},[compressed,{minor_version,1}])});
+			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,pong}},[compressed,{minor_version,1}])});
 		{From,_} ->
-			gen_server:call(Home,{sendbin,term_to_binary({rpcreply,{From,module_not_alowed}},[compressed,{minor_version,1}])})
+			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,module_not_alowed}},[compressed,{minor_version,1}])})
 	end.
 
 
