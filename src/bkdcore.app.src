@@ -2,8 +2,6 @@
  [{description, "bkdcore"},
   {vsn, "0.5"},
   {modules, [
-             bkdcore,bkdcore_sup, bkdcore_app,bkdcore_changecheck,bkdcore_in_tcp,bkdcore_log,bkdcore_out_tcp,bkdcore_trace_backend,butil,bkdcore_mochi,bkdcore_lager_backend,
-             bkdcore_task,bkdcore_test,bkdcore_sharedstate,bkdcore_geoip,bkdcore_idgen,bmochinum,bjson
             ]},
   {registered, [bkdcore_sup,bkdcore_rpc,bkdcore_mochi,bkdcore_task,bkdcore_geoip,bkdcore_cache,bkdcore_sharedstate,bkdcore_idgen]},
   {mod, {bkdcore_app, []}},
