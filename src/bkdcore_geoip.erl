@@ -179,8 +179,7 @@ terminate(_, _) ->
 code_change(_, State, _) ->
 	{ok, State}.
 init(_) ->
-	lager:info("starting geoip..."),
-	filelib:ensure_dir(butil:project_rootpath()++"/priv/geoip/"),
+	% filelib:ensure_dir(butil:project_rootpath()++"/priv/geoip/"),
 	C = ets:new(countries,[set,private,{keypos,#ci.country}]),
 	% [ets:insert(C,{Ctry}) || Ctry <- tuple_to_list(?COUNTRIES)],
 	% [ets:insert(C,{{langs, Ctry},L}) || {Ctry,L} <- ?LANGUAGES],
@@ -188,7 +187,12 @@ init(_) ->
 	ets:insert(C,consci(asia(), [])),
 	ets:insert(C,consci(america(), [])),
 	Loclangs = dict:from_list(loclangs()),
-	self() ! {check_file,0},
+	case filelib:is_dir(butil:project_rootpath()++"/priv/geoip/") of
+		true ->
+			self() ! {check_file,0};
+		_ ->
+			ok
+	end,
 	{ok, #gip{countries = C,loclangs = Loclangs}}.
 
 check_update_csv() ->
@@ -232,6 +236,7 @@ update_csv() ->
 			{_,Csv} = butil:findtrue(fun({Name,_B}) -> 
 										string:str(Name,".csv") > 0
 									end,L),
+			filelib:ensure_dir(butil:project_rootpath()++"/priv/geoip/"),
 			file:write_file(butil:project_rootpath() ++ "/priv/geoip/geoip.csv",Csv);
 		_ ->
 			ok
