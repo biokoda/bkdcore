@@ -17,7 +17,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_session(Seed) ->
 	PID = os:getpid(),
-	dec2hex(<<>>, erlang:md5([crypto:rand_bytes(10), PID, term_to_binary(now()), Seed])).
+	dec2hex(erlang:md5([crypto:rand_bytes(10), PID, term_to_binary(now()), Seed])).
 
 fbcookie(Secret,CV) ->
 	Lsig = [list_to_tuple(string:tokens(X,"=")) || X <- string:tokens(mochiweb_util:unquote(CV),"&")],
@@ -2255,20 +2255,11 @@ char_toint(X) when X >= $0, X =< $9 ->
 % 	testshort(X-1).
 	
 
-dec2hex(B) ->
-	dec2hex(<<>>, tobin(B)).
-dec2hex(N, <<I:8,Rem/binary>>) ->
-	dec2hex(<<N/binary, (hex0((I band 16#f0) bsr 4)):8, (hex0((I band 16#0f))):8>>, Rem);
-dec2hex(N,<<>>) ->
-	N.
+dec2hex(Bin) ->
+    <<<<(hex0(H)), (hex0(L))>> || <<H:4, L:4>> <= Bin>>.
 
-hex2dec(B) ->
-	hex2dec(<<>>, tobin(B)).
-hex2dec(N,<<A:8,B:8,Rem/binary>>) ->
-	hex2dec(<<N/binary, ((dec0(A) bsl 4) + dec0(B)):8>>, Rem);
-hex2dec(N,<<>>) ->
-	N.
-
+hex2dec(Bin) ->
+	<<<<(dec0(H)):4, (dec0(L)):4>> || <<H:8, L:8>> <= Bin>>.
 
 dec0(X) when X =< $Z, X >= $A ->
 	dec0(X+32);
