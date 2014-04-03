@@ -9,7 +9,7 @@
 -export([start/0, stop/0, init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([print_info/0,reload/0,deser_prop/1]).
 -export([am_i_global_master/0,am_i_cluster_master/0,whois_global_master/0,whois_cluster_master/0, 
-					register_app/2,unregister_app/1, app_vote_done/2,node_online/1]).
+				subscribe_changes/1, register_app/2,unregister_app/1, app_vote_done/2,node_online/1]).
 -export([set_cluster_state/1, set_cluster_state/3,set_global_state/1, set_global_state/3,get_cluster_state/2,
 			get_global_state/2,is_ok/0]).
 -export([savetermfile/2,readtermfile/1]).
@@ -35,6 +35,7 @@
 % {NodeName,true/false/init}  -> node is online, offline or initializing
 % {{nodenum,NodeName},Integer} -> bkdcore:nodenum() of node. Used to detect when nodes restart and determines their vote.
 % {apps,[{Name,{Mod,Func,Arg}}]} -> registered apps
+% {subscribers,[{Mod,Func,Args},...]} -> modules that get nofitications on clusterchange or state change
 % {{lastseen,NodeName},os:timestamp()} -> last time nodes pinged each other
 % {clusterstate,[{Appname,[{_,_},...]},
 % 							 {Appname1,[....]}]}
@@ -68,6 +69,10 @@ register_app(Name,{M,F,A}) ->
 			ok
 	end,
 	gen_server:call(?MODULE,{register_app,Name,Pid,{M,F,A}},infinity).
+
+% Mod - registered module (can be pid as well)
+subscribe_changes(Mod) ->
+	gen_server:call(?MODULE,{subscribe,Mod},infinity).
 
 unregister_app(Name) ->
 	gen_server:call(?MODULE,{unregister_app,Name},infinity).
@@ -350,6 +355,10 @@ handle_call({register_app,Name,Pid,MFA},_,P) ->
 	NV = [{Pid,Name,MFA}|P#dp.voters],
 	butil:ds_add(apps,NV,?MODULE),
 	{reply,ok,P#dp{voters = NV}};
+handle_call({subscribe,Proc},_,P) ->
+	Subs = butil:ds_val(subscribers,?MODULE,[]),
+	butil:ds_add(subscribers,butil:lists_add(Proc,Subs),?MODULE),
+	{reply,ok,P};
 handle_call({unregister_app,Name},_,P) ->
 	?DBG("unregister_app ~p",[Name]),
 	case lists:keyfind(Name,2,P#dp.voters) of
@@ -381,6 +390,7 @@ handle_call({master_update,Vers,State,InHash},_,P) ->
 		true ->
 			ets:insert(?MODULE,[{clusterstate,State},{clusterversion,Vers}]),
 			[Pid ! {?MODULE,cluster_state_change} || {_App,Pid,_MFA} <- P#dp.voters],
+			[butil:safesend(Pid,{?MODULE,cluster_state_change}) || Pid <- butil:ds_val(subscribers,?MODULE)],
 			ok = savetermfile([bkdcore:statepath(),"/statecluster"],{Vers,State}),
 			{reply,ok, P#dp{clusterstate = State, clusterversion = Vers, clusterhash = erlang:phash2(State)}};
 		false ->
@@ -419,6 +429,7 @@ handle_call({global_master_update,Vers,State,InHash},_,P) ->
 					ok
 			end,
 			[Pid ! {?MODULE,global_state_change} || {_App,Pid,_MFA} <- P#dp.voters],
+			[butil:safesend(Pid, {?MODULE,global_state_change}) || Pid <- butil:ds_val(subscribers,?MODULE)],
 			% bkdcore_changecheck ! {?MODULE,global_state_change},
 
 			ok = savetermfile([bkdcore:statepath(),"/stateglobal"],{Vers,State}),
@@ -728,6 +739,7 @@ is_global_node_online(Nd) ->
 handle_cast({nodechange,Node,Type},P) ->
 	?DBG("nodechange ~p",[{Node,Type}]),
 	[Pid ! {?MODULE,Node,Type} || {Pid,_App,_MFA} <- P#dp.voters],
+	[butil:safesend(Pid, {?MODULE,Node,Type}) || Pid <- butil:ds_val(subscribers,?MODULE)],
 	case ok of
 		_ when Type == offline; Type == online ->
 			{noreply,P#dp{votings = lists:keydelete(Node,1,P#dp.votings),
@@ -764,6 +776,7 @@ handle_cast({app_vote_done,Pid,_App,Node},P) ->
 handle_cast({figureout_master,L1},#dp{connected = false} = P) ->
 	?DBG("figureout_master ~p",[L1]),
 	[Pid ! {?MODULE,cluster_connected} || {Pid,_,_} <- P#dp.voters],
+	[butil:safesend(Pid, {?MODULE,cluster_connected}) || Pid <- butil:ds_val(subscribers,?MODULE)],
 	handle_cast({figureout_master,L1},P#dp{connected = true});
 handle_cast({figureout_master,L1},P) ->
 	?DBG("figureout_master ~p",[L1]),
@@ -1291,6 +1304,7 @@ init(PI) ->
 		undefined ->
 			ets:new(?MODULE, [named_table,public,set,{heir,whereis(bkdcore_sup),<<>>}]),
 			Voters = [{self(),?MODULE,undefined}],
+			butil:ds_add(subscribers,[],?MODULE),
 			butil:ds_add(apps,Voters,?MODULE);
 		_ ->
 			% Read apps from existing ets, replace old self as voter

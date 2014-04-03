@@ -62,11 +62,9 @@ print_info() ->
 % If multiple calls to getid are in the message queue at the same time, after first updates ets, the rest of getid calls
 %  need to be dismissed.
 handle_call({getid,Val},_,P) when P#dp.curto > Val, is_integer(P#dp.curto) ->
-	% io:format("getid overlimit ~p~n",[{Val,P#dp.curto}]),
 	{reply, again,P};
 % There are still intervals in the ranges buffer. Move to next.
 handle_call({getid,_Val},_,#dp{ranges = [{From,To}|Rem]} = P) ->
-	% io:format("getid nextrange ~p~n",[{_Val,{From,To}}]),
 	butil:ds_add({idcounter,From,To},?MODULE),
 	bkdcore_sharedstate:savetermfile([bkdcore:statepath(),"/ranges"],Rem),
 	case Rem of
@@ -145,17 +143,9 @@ handle_cast(_, P) ->
 
 
 handle_info(timeout,P) ->
-	ok = bkdcore_sharedstate:register_app(?MODULE,{erlang,whereis,[?MODULE]}),
+	ok = bkdcore_sharedstate:subscribe_changes(?MODULE),
 	{noreply,P};
-handle_info({bkdcore_sharedstate,Nd,State},P) ->
-	case State of
-		init ->
-			bkdcore_sharedstate:app_vote_done(actordb,Nd);
-		reconnect ->
-			bkdcore_sharedstate:app_vote_done(actordb,Nd);
-		_ ->
-			ok
-	end,
+handle_info({bkdcore_sharedstate,_Nd,_State},P) ->
 	{noreply,P};
 handle_info({bkdcore_sharedstate,cluster_state_change},P) ->
 	{noreply,P};
