@@ -141,7 +141,7 @@ init(_) ->
 	Paths = folders(),
 	{_,P} = handle_info({check_changes},#cdat{dict = butil:ds_new(dict), paths = Paths, dist_dir = RootPath ++ "/priv/code_dist"}),
 
-	case have_fswatcher() of
+	case have_fswatcher() andalso butil:get_os() == osx of
 		true ->
 			Watcher = open_port({spawn,butil:project_rootpath()++"/priv/fswatcher "++butil:project_rootpath()},[binary,stream,use_stdio]);
 		_ ->

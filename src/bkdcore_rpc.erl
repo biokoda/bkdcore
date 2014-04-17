@@ -76,7 +76,7 @@ stop(Node) ->
 
 -record(dp,{sock,sendproc,calln = 0,callsininterval = 0, callcount = 0,
 			permanent = false, direction,transport,
-			isinit = false, connected_to}).
+			isinit = false, connected_to,tunnelmod}).
 
 handle_call({call,permanent},_,P) ->
 	{reply,ok,P#dp{permanent = true}};
@@ -107,10 +107,19 @@ handle_cast(decr_callcount,P) ->
 handle_cast(_, P) ->
 	{noreply, P}.
 
-handle_info({tcp,_S,<<Key:40/binary>>},#dp{direction = receiver,isinit = false} = P) ->
+handle_info({tcp,_S,<<Key:40/binary,Rem/binary>>},#dp{direction = receiver,isinit = false} = P) ->
 	Key = bkdcore:rpccookie(),
 	inet:setopts(P#dp.sock,[{active, once}]),
-	{noreply,P#dp{isinit = true}};
+	case Rem of
+		<<>> ->
+			{noreply,P#dp{isinit = true}};
+		<<"tunnel",Mod/binary>> ->
+			{noreply,P#dp{direction = tunnel, isinit = true, permanent = true, 
+						  tunnelmod = binary_to_existing_atom(Mod,latin1)}}
+	end;
+handle_info({tcp,_,Bin},#dp{direction = tunnel} = P) ->
+	apply(P#dp.tunnelmod,tunnel_bin,[Bin]),
+	{noreply,P};
 handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 	case get(Id) of
 		undefined ->
@@ -202,7 +211,7 @@ start_link(Ref, Socket, Transport, Opts) ->
 init(Ref, Socket, Transport, _Opts) ->
 	ok = proc_lib:init_ack({ok, self()}),
 	ok = ranch:accept_ack(Ref),
-	ok = Transport:setopts(Socket, [{active, once},{packet,4},{keepalive,true},{send_timeout,10000}]),
+	ok = Transport:setopts(Socket, [{active, once},{packet,4},{keepalive,true},{send_timeout,10000},{nodelay,true}]),
 	erlang:send_after(5000,self(),timeout),
 	gen_server:enter_loop(?MODULE, [], #dp{direction = receiver,sock = Socket, transport = Transport}).
 
@@ -212,7 +221,8 @@ init([{From,FromRef},Node]) ->
 	case distreg:reg({bkdcore,Node}) of
 		ok ->
 			{IP,Port} = bkdcore:node_address(Node),
-			case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,once},{send_timeout,2000}],2000) of
+			case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,once},
+											{send_timeout,2000},{nodelay,true}],2000) of
 				{ok,S} ->
 					ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
 					erlang:send_after(5000,self(),timeout),
