@@ -66,7 +66,7 @@ handle_call({getid,Val},_,P) when P#dp.curto > Val, is_integer(P#dp.curto) ->
 % There are still intervals in the ranges buffer. Move to next.
 handle_call({getid,_Val},_,#dp{ranges = [{From,To}|Rem]} = P) ->
 	butil:ds_add({idcounter,From,To},?MODULE),
-	bkdcore_sharedstate:savetermfile([bkdcore:statepath(),"/ranges"],Rem),
+	butil:savetermfile([bkdcore:statepath(),"/ranges"],Rem),
 	case Rem of
 		[_,_,_|_] ->
 			ok;
@@ -89,7 +89,7 @@ handle_call(getstorerange,MFrom,P) ->
 			% Master gives a big range, split into smaller chunks of 100 ids.
 			Ranges = P#dp.ranges ++ [{Num-100,Num} || Num <- lists:seq(From+100,To,100)],
 			% io:format("getid getranges ~p   ~p ~n",[{Val,From,To},Ranges]),
-			bkdcore_sharedstate:savetermfile([bkdcore:statepath(),"/ranges"],Ranges),
+			butil:savetermfile([bkdcore:statepath(),"/ranges"],Ranges),
 			{reply,ok,NP#dp{ranges = Ranges}};
 		Err ->
 			Err
@@ -152,7 +152,7 @@ handle_info({bkdcore_sharedstate,cluster_state_change},P) ->
 handle_info({bkdcore_sharedstate,global_state_change},P) ->
 	{noreply,P};
 handle_info({bkdcore_sharedstate,cluster_connected},P) ->
-	case bkdcore_sharedstate:readtermfile([bkdcore:statepath(),"/ranges"]) of
+	case butil:readtermfile([bkdcore:statepath(),"/ranges"]) of
 		Ranges when is_list(Ranges) ->
 			{noreply,P#dp{ranges = Ranges}};
 		_ ->

@@ -998,6 +998,31 @@ deldir(Root) ->
 			ok
 	end.
 
+savetermfile(Path,Term) ->
+	savebinfile(Path,term_to_binary(Term,[compressed,{minor_version,1}])).
+savebinfile(Path,Bin) ->
+	filelib:ensure_dir(Path),
+	ok = file:write_file(Path,[<<(erlang:crc32(Bin)):32/unsigned>>,Bin]).
+readtermfile(Path) ->
+	case readbinfile(Path) of
+		undefined ->
+			undefined;
+		Bin ->
+			binary_to_term(Bin)
+	end.
+readbinfile(Path) ->
+	case file:read_file(Path) of
+		{ok,<<Crc:32/unsigned,Body/binary>>} ->
+			case erlang:crc32(Body) of
+				Crc ->
+					Body;
+				_ ->
+					undefined
+			end;
+		_Err ->
+			undefined
+	end.
+
 move_file(From,To) ->
 	case filelib:file_size(From) of
 		0 ->
