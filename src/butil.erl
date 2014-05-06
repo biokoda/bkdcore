@@ -205,14 +205,7 @@ validation_response(A,{error, Type, _Msg, _Param}, _ErrPath, _ErrCookie,true) wh
 	end;
 validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 	case X of
-		#pgr{status = 200} = R when is_record(A,arg) ->
-			case LoginReq of
-				true ->
-					[kill_cookie(A, "loginaction"),yawsheaders(R#pgr.headers,[]),R#pgr.cookies,{content, R#pgr.mime, R#pgr.content}];
-				_ ->
-					[R#pgr.cookies,yawsheaders(R#pgr.headers,[]),{content, R#pgr.mime, R#pgr.content}]
-			end;
-		#pgr{status = 200} = R ->
+		R when R#pgr.status < 226 ->
 			case LoginReq of
 				true ->
 					A:respond({200,lists:flatten([kill_cookie(A,"loginaction"),R#pgr.headers,{"Content-type",R#pgr.mime},R#pgr.cookies]),R#pgr.content});
