@@ -12,7 +12,6 @@
 				subscribe_changes/1, register_app/2,unregister_app/1, app_vote_done/2,node_online/1]).
 -export([set_cluster_state/1, set_cluster_state/3,set_global_state/1, set_global_state/3,get_cluster_state/2,
 			get_global_state/2,is_ok/0]).
--export([savetermfile/2,readtermfile/1]).
 % For internal RPC
 -export([clusterstate/0,globalstate/0,ping/1,ping/2,rec_global_broadcast/4,get_global_state/0,find_global_state/2,ping/3]).
 % -compile(export_all).
@@ -391,7 +390,7 @@ handle_call({master_update,Vers,State,InHash},_,P) ->
 			ets:insert(?MODULE,[{clusterstate,State},{clusterversion,Vers}]),
 			[Pid ! {?MODULE,cluster_state_change} || {_App,Pid,_MFA} <- P#dp.voters],
 			[butil:safesend(Pid,{?MODULE,cluster_state_change}) || Pid <- butil:ds_val(subscribers,?MODULE)],
-			ok = savetermfile([bkdcore:statepath(),"/statecluster"],{Vers,State}),
+			ok = butil:savetermfile([bkdcore:statepath(),"/statecluster"],{Vers,State}),
 			{reply,ok, P#dp{clusterstate = State, clusterversion = Vers, clusterhash = erlang:phash2(State)}};
 		false ->
 			{reply,ok,P}
@@ -432,7 +431,7 @@ handle_call({global_master_update,Vers,State,InHash},_,P) ->
 			[butil:safesend(Pid, {?MODULE,global_state_change}) || Pid <- butil:ds_val(subscribers,?MODULE)],
 			% bkdcore_changecheck ! {?MODULE,global_state_change},
 
-			ok = savetermfile([bkdcore:statepath(),"/stateglobal"],{Vers,State}),
+			ok = butil:savetermfile([bkdcore:statepath(),"/stateglobal"],{Vers,State}),
 			{reply,ok, P#dp{globalstate = State, globalversion = Vers, globalhash = erlang:phash2(State),
 											global_ping_nodes = global_ping_nodes(),
 											master_group = state_val(bkdcore,master_group,State)}};
@@ -1325,7 +1324,7 @@ init(PI) ->
 			butil:ds_add(bkdcore:node_name(),false,?MODULE),
 			erlang:send_after(5000,self(),figureout_master),
 			self() ! start_global,
-			case readtermfile([bkdcore:statepath(),"/stateglobal"]) of
+			case butil:readtermfile([bkdcore:statepath(),"/stateglobal"]) of
 				{GlobalV,Global} ->
 					global_to_changecheck(Global),
 					ok;
@@ -1333,7 +1332,7 @@ init(PI) ->
 					GlobalV = 0,
 					Global = []
 			end,
-			case readtermfile([bkdcore:statepath(),"/statecluster"]) of
+			case butil:readtermfile([bkdcore:statepath(),"/statecluster"]) of
 				undefined ->
 					ClusterV = 0,
 					Cluster = [];
@@ -1442,31 +1441,6 @@ save_state_val(App,Key,Val,State) ->
 	lists:keystore({App,Key},1,State,{{App,Key},Val}).
 
 
-
-savetermfile(Path,Term) ->
-	savebinfile(Path,term_to_binary(Term,[compressed,{minor_version,1}])).
-savebinfile(Path,Bin) ->
-	filelib:ensure_dir(Path),
-	ok = file:write_file(Path,[<<(erlang:crc32(Bin)):32/unsigned>>,Bin]).
-readtermfile(Path) ->
-	case readbinfile(Path) of
-		undefined ->
-			undefined;
-		Bin ->
-			binary_to_term(Bin)
-	end.
-readbinfile(Path) ->
-	case file:read_file(Path) of
-		{ok,<<Crc:32/unsigned,Body/binary>>} ->
-			case erlang:crc32(Body) of
-				Crc ->
-					Body;
-				_ ->
-					undefined
-			end;
-		_Err ->
-			undefined
-	end.
 
 
 

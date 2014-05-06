@@ -73,8 +73,10 @@ uptime() ->
 
 dist_name() ->
 	dist_name(node_name()).
-dist_name(Name) ->
-	butil:ds_val({distname,butil:tobin(Name)},bkdcore_nodes).
+dist_name(Name) when is_binary(Name) ->
+	butil:ds_val({distname,butil:tobin(Name)},bkdcore_nodes);
+dist_name(Name) when is_atom(Name) ->
+	Name.
 
 name_from_dist_name(DN) ->
 	butil:ds_val({realname,DN},bkdcore_nodes).
