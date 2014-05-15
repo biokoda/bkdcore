@@ -276,11 +276,6 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 		_X ->
 			A:respond({400,[],<<"Bad Request">>})
 	end.
-yawsheaders([{K,V}|T],L) when is_list(K); is_binary(K) ->
-	yawsheaders(T,[{header,[K,V]}|L]);
-yawsheaders(_,L) ->
-	L.
-
 
 validate_request(A,{M,F}) ->
 	case catch apply(M,F,[A]) of
