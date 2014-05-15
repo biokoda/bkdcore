@@ -78,8 +78,10 @@ dist_name(Name) when is_binary(Name) ->
 dist_name(Name) when is_atom(Name) ->
 	Name.
 
-name_from_dist_name(DN) ->
-	butil:ds_val({realname,DN},bkdcore_nodes).
+name_from_dist_name(DN) when is_atom(DN) ->
+	butil:ds_val({realname,DN},bkdcore_nodes);
+name_from_dist_name(DN) when is_binary(DN) ->
+	DN.
 
 node_name() ->
 	case application:get_env(bkdcore,name) of

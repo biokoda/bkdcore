@@ -18,7 +18,8 @@ start(_Type, _Args) ->
 	io:format("Starting bkdcore~n"),
 	application:start(asn1),
 	application:start(distreg),
-	application:ensure_started(yamerl),
+	application:start(yamerl),
+	butil:wait_for_app(yamerl),
 	Params = [begin
 							case application:get_env(bkdcore,K) of
 								{ok,V} ->
