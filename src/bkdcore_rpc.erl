@@ -119,6 +119,7 @@ handle_info({tcp,_S,<<Key:40/binary,Rem/binary>>},#dp{direction = receiver,isini
 	end;
 handle_info({tcp,_,Bin},#dp{direction = tunnel} = P) ->
 	apply(P#dp.tunnelmod,tunnel_bin,[Bin]),
+	inet:setopts(P#dp.sock,[{active, once}]),
 	{noreply,P};
 handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 	case get(Id) of
@@ -132,6 +133,7 @@ handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 			CallsInInt = P#dp.callsininterval + 1,
 			Home = self(),
 			<<Size:32/unsigned,Body/binary>> = SizeAndBody,
+			% ?INF("BKDRPC received bin ~p ~p ~p",[Id,get(Id),Size]),
 			case Size == byte_size(Body) of
 				true ->
 					{ProcPid,_} = spawn_monitor(fun() -> exec(Home,Body) end);
@@ -235,7 +237,6 @@ init([{From,FromRef},Node]) ->
 			From ! {FromRef,name_exists},
 			{stop,normal}
 	end.
-
 
 
 
