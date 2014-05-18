@@ -276,11 +276,6 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 		_X ->
 			A:respond({400,[],<<"Bad Request">>})
 	end.
-yawsheaders([{K,V}|T],L) when is_list(K); is_binary(K) ->
-	yawsheaders(T,[{header,[K,V]}|L]);
-yawsheaders(_,L) ->
-	L.
-
 
 validate_request(A,{M,F}) ->
 	case catch apply(M,F,[A]) of
@@ -2273,11 +2268,15 @@ char_toint(X) when X >= $0, X =< $9 ->
 % 	testshort(X-1).
 	
 
-dec2hex(Bin) ->
-    <<<<(hex0(H)), (hex0(L))>> || <<H:4, L:4>> <= Bin>>.
+dec2hex(<<_/binary>> = Bin) ->
+    <<<<(hex0(H)), (hex0(L))>> || <<H:4, L:4>> <= Bin>>;
+dec2hex(L) ->
+	dec2hex(tobin(L)).
 
-hex2dec(Bin) ->
-	<<<<(dec0(H)):4, (dec0(L)):4>> || <<H:8, L:8>> <= Bin>>.
+hex2dec(<<_/binary>> = Bin) ->
+	<<<<(dec0(H)):4, (dec0(L)):4>> || <<H:8, L:8>> <= Bin>>;
+hex2dec(L) ->
+	hex2dec(tobin(L)).
 
 dec0(X) when X =< $Z, X >= $A ->
 	dec0(X+32);
