@@ -322,6 +322,11 @@ json_resp(#pgr{content = <<_/binary>>} = V,Cookies) ->
 	V#pgr{mime = "application/json", 
 		 cookies = Cookies,
 		 headers = [{"Cache-control","no-cache"},{"Pragma", "no-cache"}]};
+json_resp({array,[]},Cookies)->
+	#pgr{mime = "application/json", 
+		 cookies = Cookies,
+		 headers = [{"Cache-control","no-cache"},{"Pragma", "no-cache"}],
+		 content = bjson:encode({array,[]})};
 json_resp({K,V},Cookies) when is_list(V) ->
 	json_resp([{K,tobin(V)}],Cookies);
 json_resp({K,V},Cookies) ->
