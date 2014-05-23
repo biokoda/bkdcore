@@ -5,7 +5,7 @@
 -behaviour(gen_server).
 -include("bkdcore.hrl").
 % API
--export([call/2]).
+-export([call/2,cast/2]).
 % gen_server
 -export([start/0,start/1, stop/1,stop/0, init/1, handle_call/3, 
  		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
@@ -43,6 +43,25 @@ call(Node,Pid,Msg) ->
 		X ->
 			X
 	end.
+
+cast(Node,Msg) ->
+	case distreg:whereis({bkdcore,Node}) of
+		undefined ->
+			case start(Node) of
+				{error,name_exists} ->
+					cast(Node,Msg);
+				{error,normal} ->
+					{error,econnrefused};
+				{error,E} ->
+					E;
+				{ok,Pid} ->
+					cast(Node,Pid,Msg)
+			end;
+		Pid ->
+			cast(Node,Pid,Msg)
+	end.
+cast(_Node,Pid,Msg) ->
+	gen_server:cast(Pid,{cast,Msg}).
 
 start() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -102,6 +121,9 @@ handle_call({print_info}, _, P) ->
 handle_call(stop, _, P) ->
 	{stop, shutdown, stopped, P}.
 
+handle_cast({cast,Msg},P) ->
+	Bin = term_to_binary({undefined,Msg},[compressed,{minor_version,1}]),
+	handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1});
 handle_cast(decr_callcount,P) ->
 	{noreply,P#dp{callcount = P#dp.callcount - 1}};
 handle_cast(_, P) ->
@@ -261,13 +283,15 @@ exec(Home,Msg) ->
 		{From,{Mod,Func,Param}} when Mod /= file, Mod /= filelib, Mod /= init, 
 									Mod /= io, Mod /= os, Mod /= erlang, Mod /= code ->
 			case catch apply(Mod,Func,Param) of
-				X ->
-					gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,X}},[compressed,{minor_version,1}])})
+				X when From /= undefined ->
+					gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,X}},[compressed,{minor_version,1}])});
+				_ ->
+					ok
 			end;
 		{From,ping} ->
 			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,pong}},[compressed,{minor_version,1}])});
-		{From,_} ->
-			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,module_not_alowed}},[compressed,{minor_version,1}])})
+		{From,What} ->
+			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,{module_not_alowed,What}}},[compressed,{minor_version,1}])})
 	end.
 
 
