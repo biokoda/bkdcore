@@ -3140,6 +3140,15 @@ lists_add_all([H|T],L) ->
 lists_add_all([],L) ->
 	L.
 
+lists_split_at(X,L) ->
+	lists_split_at(X,L,[]).
+lists_split_at(X,[X|T],L) ->
+	{lists:reverse(L),T};
+lists_split_at(X,[H|T],L) ->
+	lists_split_at(X,T,[H|L]);
+lists_split_at(_,[],L) ->
+	{lists:reverse(L),[]}.
+
 % rpc(Node,{Mod,Func,Args}) ->
 % 	rpc(Node,Mod,Func,Args).
 % rpc(Node,Mod,Func,Args) ->
