@@ -1648,15 +1648,88 @@ sql_select_cmd(T,Cond) ->
 
 query_pair({A,V}) ->
 	query_pair({A,"=",V});
+query_pair({A,Op,V,multiple}) ->
+	query_pair_multiple(V,Op,A,[],length(V)-1);
 query_pair({A,Op,V}) ->
 	case ok of
 		_ when V == null ->
-			[sqlescape(tolist(A))," IS NULL "];
+			case Op of
+				_ when Op == "<>" orelse Op == "!="  ->
+					[sqlescape(butil:tolist(A))," IS NOT NULL "];
+				_ ->
+					[sqlescape(butil:tolist(A))," IS NULL "]
+			end;	
 		_ ->
-			[sqlescape(tolist(A))," ",Op," ",sqlquote(V)," "]
+			[sqlescape(butil:tolist(A))," ",Op," ",sqlquote(V)," "]
+	end.
+query_pair_multiple([],Op,A,Output,Len)->
+	Output;
+query_pair_multiple([H|T],Op,A,Output,Len)->
+	case length(T) of
+		0 ->
+			Out = ["(",sqlescape(butil:tolist(A))," ",Op," ",sqlquote(H)," OR "];
+		Len ->
+			Out = [sqlescape(butil:tolist(A))," ",Op," ",sqlquote(H),")"];
+		_ ->
+			Out = [sqlescape(butil:tolist(A))," ",Op," ",sqlquote(H)," OR "]
+	end,
+	query_pair_multiple(T,Op,A,[Out|Output],Len).
+
+value_pairs(Data) ->
+	case Data of
+		[{_,_} = L] ->
+			value_pair(L);
+		[{_,_} = L|R] ->
+			[value_pair(L), [ [",",value_pair(Rx)] || Rx <- R ] ]
 	end.
 
-% butil:sql_createtable(#ad{},"CONSTRAINT pk_ads PRIMARY KEY(id)").
+value_pair({C,V}) ->
+	case V of
+		V when is_integer(V) ->
+			butil:tolist(C) ++ "=" ++ butil:tolist(V);
+		V when is_float(V) ->
+			butil:tolist(C) ++ "=" ++ butil:tolist(V);
+		V when is_list(V) ->
+			butil:tolist(C) ++ "=" ++ sqlquote(V);
+		V when is_binary(V) ->
+			butil:tolist(C) ++ "='" ++ butil:tolist(V)++"'"
+	end.
+
+insert_pair({C,D}) ->
+	case D of
+		D when is_integer(D) ->
+			{butil:tolist(C), butil:tolist(D)};
+		D when is_float(D) ->
+			{butil:tolist(C), butil:tolist(D)};
+		D when is_list(D) ->
+			{butil:tolist(C), sqlquote(D)};
+		D when D==undefined ->
+			{};
+		D when is_binary(D) ->
+			{butil:tolist(C), sqlquote(D)}
+	end.
+
+insert_pairs(D) ->
+	insert_pairs(D,"","").
+
+insert_pairs([],Cols,Vals) ->
+	{Cols,Vals};
+insert_pairs([Vp|T],Cols,Vals) ->
+	case insert_pair(Vp) of
+		{}->
+			insert_pairs(T,Cols,Vals);
+		{Cv,Dv} -> 
+			case Cols of
+				"" ->
+					AddVal = Dv,
+					AddCol = Cv;
+				_ ->
+					AddVal = Vals ++ "," ++ Dv,
+					AddCol = Cols ++ "," ++ Cv
+			end,	
+			insert_pairs(T,AddCol,AddVal)
+	end.
+
 sql_createtable(Rec,Constraints) ->
 	Cmd = sql_createtable_cmd(Rec,Constraints),
 	Cmdbin = iolist_to_binary(Cmd),
@@ -3697,11 +3770,11 @@ parse_chunked_bin(Bin,Chunks) ->
 			Bin
 	end.
 
-
-
-
-
-
+msToDate(Milliseconds) ->
+   BaseDate      = calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}),
+   Seconds       = BaseDate + (Milliseconds div 1000),
+   { Date,_Time} = calendar:gregorian_seconds_to_datetime(Seconds),
+   Date.
 
 
 
