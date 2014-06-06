@@ -1662,7 +1662,7 @@ query_pair({A,Op,V}) ->
 		_ ->
 			[sqlescape(butil:tolist(A))," ",Op," ",sqlquote(V)," "]
 	end.
-query_pair_multiple([],Op,A,Output,Len)->
+query_pair_multiple([],_Op,_A,Output,_Len)->
 	Output;
 query_pair_multiple([H|T],Op,A,Output,Len)->
 	case length(T) of
