@@ -5,63 +5,80 @@
 -behaviour(gen_server).
 -include("bkdcore.hrl").
 % API
--export([call/2,cast/2]).
+-export([call/2,cast/2,async_call/3,multicall/2,is_connected/1]).
 % gen_server
 -export([start/0,start/1, stop/1,stop/0, init/1, handle_call/3, 
  		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
 -export([start_link/4,init/4]).
+
+-define(CHUNKSIZE,16834).
 
 % RPC between bkdcore nodes
 % Large calls are supported. Every call is split into 16kB chunks. 
 %  So sending multimegabyte data over RPC is fine and will not block other smaller calls for longer than it takes to send a 16KB chunk.
 
 call(Node,Msg) ->
-	case distreg:whereis({bkdcore,Node}) of
-		undefined ->
-			case start(Node) of
-				{error,name_exists} ->
+	case getpid(Node) of
+		Pid when is_pid(Pid) ->
+			case catch gen_server:call(Pid,{call,Msg},infinity) of
+				{'EXIT',{noproc,_}} ->
+					erlang:yield(),
 					call(Node,Msg);
-				{error,normal} ->
+				{'EXIT',{normal,_}} ->
 					{error,econnrefused};
-				{error,E} ->
-					E;
-				{ok,Pid} ->
-					call(Node,Pid,Msg)
+				normal ->
+					{error,econnrefused};
+				X ->
+					X
 			end;
-		Pid ->
-			call(Node,Pid,Msg)
-	end.
-call(Node,Pid,Msg) ->
-	case catch gen_server:call(Pid,{call,Msg},infinity) of
-		{'EXIT',{noproc,_}} ->
-			erlang:yield(),
-			call(Node,Msg);
-		{'EXIT',{normal,_}} ->
-			{error,econnrefused};
-		normal ->
-			{error,econnrefused};
-		X ->
-			X
+		Res ->
+			Res
 	end.
 
-cast(Node,Msg) ->
-	case distreg:whereis({bkdcore,Node}) of
-		undefined ->
-			case start(Node) of
-				{error,name_exists} ->
-					cast(Node,Msg);
-				{error,normal} ->
-					{error,econnrefused};
-				{error,E} ->
-					E;
-				{ok,Pid} ->
-					cast(Node,Pid,Msg)
-			end;
-		Pid ->
-			cast(Node,Pid,Msg)
+is_connected(Node) ->
+	case getpid(Node) of
+		Pid when is_pid(Pid) ->
+			Res = gen_server:call(Pid,is_connected);
+		_ ->
+			Res = error
+	end,
+	Res == true.
+
+
+multicall(Nodes,Msg) when is_list(Nodes) ->
+	Ref = make_ref(),
+	NumCalls = lists:foldl(fun(Nd,Count) ->
+		async_call({self(),{Ref,Nd}},Nd,Msg),
+		Count+1
+	 end,0,Nodes),
+	multicall(NumCalls,Ref,[],[]).
+multicall(0,_,Results,BadNodes) ->
+	{Results,BadNodes};
+multicall(Count,Ref,Results,Bad) ->
+	receive
+		{{Ref,Nd},{error,econnrefused}} ->
+			multicall(Count-1,Ref,Results,[Nd|Bad]);
+		{{Ref,_Nd},Res} ->
+			multicall(Count-1,Ref,[Res|Results],Bad)
 	end.
-cast(_Node,Pid,Msg) ->
-	gen_server:cast(Pid,{cast,Msg}).
+
+
+async_call(From,Node,Msg) ->
+	case getpid(Node) of
+		Pid when is_pid(Pid) ->
+			gen_server:cast(Pid,{call,From,Msg});
+		Err ->
+			Err
+	end.	
+
+cast(Node,Msg) ->
+	case getpid(Node) of
+		Pid when is_pid(Pid) ->
+			gen_server:cast(Pid,{cast,Msg});
+		Err ->
+			Err
+	end.
+
 
 start() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -92,11 +109,31 @@ stop(undefined) ->
 stop(Node) ->
 	stop(distreg:whereis({bkdcore,Node})).
 
+getpid(Node) ->
+	case distreg:whereis({bkdcore,Node}) of
+		undefined ->
+			Pid = 
+			case start(Node) of
+				{error,name_exists} ->
+					getpid(Node);
+				{error,normal} ->
+					{error,econnrefused};
+				{error,E} ->
+					E;
+				{ok,Pid1} ->
+					Pid1
+			end;
+		Pid ->
+			ok
+	end,
+	Pid.
 
 -record(dp,{sock,sendproc,calln = 0,callsininterval = 0, callcount = 0,
 			permanent = false, direction,transport,
-			isinit = false, connected_to,tunnelmod}).
+			isinit = false, connected_to,tunnelmod, reconnecter}).
 
+handle_call(_Msg,_,#dp{direction = sender, sock = undefined} = P) ->
+	{reply,{error,econnrefused},P};
 handle_call({call,permanent},_,P) ->
 	{reply,ok,P#dp{permanent = true}};
 handle_call({call,Msg},From,P) ->
@@ -106,8 +143,9 @@ handle_call({reply,Bin},From,P) ->
 	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount - 1});
 handle_call({sendbin,Bin},_,P) ->
 	case Bin of
-		<<First:16384/binary,Rem/binary>> ->
-			self() ! {continue,P#dp.calln,Rem};
+		<<First:?CHUNKSIZE/binary,_/binary>> ->
+			put({sendbin,P#dp.calln},{?CHUNKSIZE,Bin}),
+			self() ! {continue,P#dp.calln};
 		First ->
 			ok
 	end,
@@ -115,12 +153,17 @@ handle_call({sendbin,Bin},_,P) ->
 	ok = gen_tcp:send(P#dp.sock,Packet),
 	{noreply,P#dp{calln = P#dp.calln + 1,
 				callsininterval = P#dp.callsininterval + 1}};
+handle_call(is_connected,_,P) ->
+	{reply,true,P};
 handle_call({print_info}, _, P) ->
 	io:format("~p~n", [P]),
 	{reply, ok, P};
 handle_call(stop, _, P) ->
 	{stop, shutdown, stopped, P}.
 
+handle_cast({call,From,Msg},P) ->
+	Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
+	handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1});
 handle_cast({cast,Msg},P) ->
 	Bin = term_to_binary({undefined,Msg},[compressed,{minor_version,1}]),
 	handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1});
@@ -155,7 +198,6 @@ handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 			CallsInInt = P#dp.callsininterval + 1,
 			Home = self(),
 			<<Size:32/unsigned,Body/binary>> = SizeAndBody,
-			% ?INF("BKDRPC received bin ~p ~p ~p",[Id,get(Id),Size]),
 			case Size == byte_size(Body) of
 				true ->
 					{ProcPid,_} = spawn_monitor(fun() -> exec(Home,Body) end);
@@ -178,15 +220,27 @@ handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 	inet:setopts(P#dp.sock,[{active, once}]),
 	{noreply,P#dp{calln = P#dp.calln + 1, callcount = CallCount,
 					callsininterval = CallsInInt}};
-handle_info({continue,N,Bin},P) ->
-	case Bin of
-		<<First:16384/binary,Rem/binary>> ->
-			self() ! {continue,N,Rem};
-		First ->
-			ok
+handle_info({continue,N},P) ->
+	case get({sendbin,N}) of
+		{Skip, Bin} when byte_size(Bin) > ?CHUNKSIZE+Skip ->
+			<<_:Skip/binary,First:?CHUNKSIZE/binary,_/binary>> = Bin,
+			put({sendbin,N},{Skip+?CHUNKSIZE,Bin}),
+			self() ! {continue,N};
+		{Skip,Bin} ->
+			<<_:Skip/binary,First/binary>> = Bin,
+			erase({sendbin,N})
 	end,
 	ok = gen_tcp:send(P#dp.sock,[<<N:24/unsigned>>,First]),
 	{noreply,P};
+handle_info({'DOWN',_Monitor,_,PID,Reason}, #dp{reconnecter = PID} = P) ->
+	case Reason of
+		false ->
+			{noreply, P#dp{reconnecter = undefined}};
+		Socket ->
+			erlang:send_after(5000,self(),timeout),
+			inet:setopts(P#dp.sock,[{active, once}]),
+			{noreply, P#dp{sock = Socket, reconnecter = undefined}}
+	end;
 handle_info({'DOWN',_Monitor,_,Pid,_Reason},P) ->
 	case get(Pid) of
 		undefined ->
@@ -218,6 +272,16 @@ handle_info(timeout,P) ->
 			garbage_collect(),
 			erlang:send_after(5000,self(),timeout),
 			{noreply,P#dp{callsininterval = 0}}
+	end;
+handle_info(reconnect,P) ->
+	erlang:send_after(1000,self(),reconnect),
+	case P#dp.reconnecter of
+		undefined ->
+			Me = self(),
+			{Pid,_} = spawn_monitor(fun() -> connect_to(Me,P#dp.connected_to) end),
+			{noreply,P#dp{reconnecter = Pid}};
+		_ ->
+			{noreply,P}
 	end;
 handle_info(_Msg, P) -> 
 	io:format("bkdcoreout invalid msg ~p~n",[_Msg]),
@@ -252,8 +316,8 @@ init([{From,FromRef},Node]) ->
 					erlang:send_after(5000,self(),timeout),
 					{ok, #dp{sock = S, direction = sender, connected_to = Node}};
 				_Err ->
-					From ! {FromRef,_Err},
-					{stop,normal}
+					erlang:send_after(1000,self(),reconnect),
+					{ok,#dp{direction = sender, connected_to = Node}}
 			end;
 		name_exists ->
 			From ! {FromRef,name_exists},
@@ -261,6 +325,17 @@ init([{From,FromRef},Node]) ->
 	end.
 
 
+connect_to(Home,Node) ->
+	{IP,Port} = bkdcore:node_address(Node),
+	case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,false},
+									{send_timeout,2000},{nodelay,true}],2000) of
+		{ok,S} ->
+			ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
+			gen_tcp:controlling_process(S,Home),
+			exit(S);
+		_Err ->
+			exit(false)
+	end.
 
 exec_gather(Home,Bin) ->
 	erlang:monitor(process,Home),

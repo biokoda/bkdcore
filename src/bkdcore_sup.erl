@@ -32,6 +32,18 @@ init([]) ->
 			 worker,
 			[bkdcore_rpc]}]
 	end,
+	case application:get_env(bkdcore,usesharedstate) of
+		{ok,false} ->
+			Shared = [];
+		_ ->
+			Shared = 
+			[{bkdcore_sharedstate,
+				{bkdcore_sharedstate, start, []},
+				 permanent,
+				 100,
+				 worker,
+				[bkdcore_sharedstate]}]
+	end,
 	{ok, {{one_for_one, 10, 1},
 		 [
 		{bkdcore_changecheck,
@@ -58,18 +70,12 @@ init([]) ->
 				 100,
 				 worker,
 				[bkdcore_cache]},
-		{bkdcore_sharedstate,
-			{bkdcore_sharedstate, start, []},
-			 permanent,
-			 100,
-			 worker,
-			[bkdcore_sharedstate]},
 		{bkdcore_idgen,
 			{bkdcore_idgen, start, []},
 			 permanent,
 			 100,
 			 worker,
 			[bkdcore_idgen]}
-		 ] ++ Mochi ++ Tcp
+		 ] ++ Shared ++ Mochi ++ Tcp
 	}}.
 
