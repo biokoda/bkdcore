@@ -42,7 +42,13 @@ init([]) ->
 				 permanent,
 				 100,
 				 worker,
-				[bkdcore_sharedstate]}]
+				[bkdcore_sharedstate]},
+			{bkdcore_idgen,
+			{bkdcore_idgen, start, []},
+			 permanent,
+			 100,
+			 worker,
+			[bkdcore_idgen]}]
 	end,
 	{ok, {{one_for_one, 10, 1},
 		 [
@@ -69,13 +75,7 @@ init([]) ->
 				 permanent,
 				 100,
 				 worker,
-				[bkdcore_cache]},
-		{bkdcore_idgen,
-			{bkdcore_idgen, start, []},
-			 permanent,
-			 100,
-			 worker,
-			[bkdcore_idgen]}
+				[bkdcore_cache]}
 		 ] ++ Shared ++ Mochi ++ Tcp
 	}}.
 

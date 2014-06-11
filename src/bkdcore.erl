@@ -165,7 +165,7 @@ rpccookie(Node) ->
 	end.
 
 arpc_group(V,Grp) ->
-	[arpc(N,V) || N <- active_nodelist(Grp)].
+	[arpc(N,V) || N <- nodelist(Grp)].
 
 is_uninitialized() ->
 	Size = ets:info(bkdcore_nodes,size),
@@ -183,19 +183,19 @@ nodelist(G) ->
 			L
 	end.
 
-node_online(Nd1) ->
+% node_online(Nd1) ->
 	% Nd = butil:tobin(Nd1),
 	% case node_name() == Nd of
 	% 	true ->
 	% 		true;
 	% 	_ ->
-			bkdcore_sharedstate:node_online(butil:tobin(Nd1)).
+			% bkdcore_sharedstate:node_online(butil:tobin(Nd1)).
 	% end.
 
-active_nodelist(Grp) ->
-	lists:filter(fun node_online/1,nodelist(Grp)).
-inactive_nodelist(Grp) ->
-	lists:filter(fun(Nd) -> case node_online(Nd) of true -> false; false -> true end end,nodelist(Grp)).
+% active_nodelist(Grp) ->
+% 	lists:filter(fun node_online/1,nodelist(Grp)).
+% inactive_nodelist(Grp) ->
+% 	lists:filter(fun(Nd) -> case node_online(Nd) of true -> false; false -> true end end,nodelist(Grp)).
 
 % Mod - atom name of module
 % T can be:
