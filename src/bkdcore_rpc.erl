@@ -18,6 +18,7 @@
 %  So sending multimegabyte data over RPC is fine and will not block other smaller calls for longer than it takes to send a 16KB chunk.
 
 call(Node,Msg) ->
+	% ?INF("rpc to ~p ~p",[Node,bkdcore:nodelist()]),
 	case getpid(Node) of
 		Pid when is_pid(Pid) ->
 			case catch gen_server:call(Pid,{call,Msg},infinity) of
@@ -64,6 +65,7 @@ multicall(Count,Ref,Results,Bad) ->
 
 
 async_call(From,Node,Msg) ->
+	% ?INF("arpc to ~p ~p",[Node,bkdcore:nodelist()]),
 	case getpid(Node) of
 		Pid when is_pid(Pid) ->
 			gen_server:cast(Pid,{call,From,Msg});
@@ -72,6 +74,7 @@ async_call(From,Node,Msg) ->
 	end.	
 
 cast(Node,Msg) ->
+	% ?INF("rpc cast to ~p ~p",[Node,bkdcore:nodelist()]),
 	case getpid(Node) of
 		Pid when is_pid(Pid) ->
 			gen_server:cast(Pid,{cast,Msg});
@@ -163,10 +166,21 @@ handle_call(stop, _, P) ->
 
 handle_cast({call,From,Msg},P) ->
 	Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
-	handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1});
+	case handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1}) of
+		{reply,Err,NP} ->
+			gen_server:reply(From,Err),
+			{noreply,NP};
+		{noreply,NP} ->
+			{noreply,NP}
+	end;
 handle_cast({cast,Msg},P) ->
 	Bin = term_to_binary({undefined,Msg},[compressed,{minor_version,1}]),
-	handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1});
+	case handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1}) of
+		{reply,_,NP} ->
+			{noreply,NP};
+		{noreply,NP} ->
+			{noreply,NP}
+	end;
 handle_cast(decr_callcount,P) ->
 	{noreply,P#dp{callcount = P#dp.callcount - 1}};
 handle_cast(_, P) ->
@@ -238,7 +252,7 @@ handle_info({'DOWN',_Monitor,_,PID,Reason}, #dp{reconnecter = PID} = P) ->
 			{noreply, P#dp{reconnecter = undefined}};
 		Socket ->
 			erlang:send_after(5000,self(),timeout),
-			inet:setopts(P#dp.sock,[{active, once}]),
+			inet:setopts(Socket,[{active, once}]),
 			{noreply, P#dp{sock = Socket, reconnecter = undefined}}
 	end;
 handle_info({'DOWN',_Monitor,_,Pid,_Reason},P) ->
