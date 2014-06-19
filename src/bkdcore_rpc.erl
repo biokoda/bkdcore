@@ -251,6 +251,7 @@ handle_info({'DOWN',_Monitor,_,PID,Reason}, #dp{reconnecter = PID} = P) ->
 		false ->
 			{noreply, P#dp{reconnecter = undefined}};
 		Socket ->
+			?INF("Reconnected to ~p",[P#dp.connected_to]),
 			erlang:send_after(5000,self(),timeout),
 			inet:setopts(Socket,[{active, once}]),
 			{noreply, P#dp{sock = Socket, reconnecter = undefined}}
@@ -290,7 +291,7 @@ handle_info(timeout,P) ->
 handle_info(reconnect,P) ->
 	erlang:send_after(1000,self(),reconnect),
 	case P#dp.reconnecter of
-		undefined ->
+		undefined when P#dp.sock == undefined ->
 			Me = self(),
 			{Pid,_} = spawn_monitor(fun() -> connect_to(Me,P#dp.connected_to) end),
 			{noreply,P#dp{reconnecter = Pid}};
