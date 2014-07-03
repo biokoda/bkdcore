@@ -6,7 +6,7 @@
 -export([start/0, stop/0, reload/0,print_info/0,deser_prop/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([make/0,startup_node/0,folders/0,is_valid_path/1,read_node/1,set_nodes_groups/2,
-		 insert_nodes_to_ets/1,insert_groups_to_ets/1,setcfg/1,setcfg/2,startapps/0,
+		 insert_nodes_to_ets/1,insert_groups_to_ets/1,setcfg/1,setcfg/2,
 		 parse_yaml_groups/1]).
 -include_lib("kernel/include/file.hrl").
 
@@ -642,24 +642,24 @@ parseaddress(Addr1,Port1) ->
 	end,
 	{Address,Port}.
 
-wait_for_setup(0) ->
-	exit(timeout);
-wait_for_setup(N) ->
-	case bkdcore_sharedstate:is_ok() of
-		true ->
-			ok;
-		false ->
-			timer:sleep(1000),
-			wait_for_setup(N-1)
-	end.
+% wait_for_setup(0) ->
+% 	exit(timeout);
+% wait_for_setup(N) ->
+% 	case bkdcore_sharedstate:is_ok() of
+% 		true ->
+% 			ok;
+% 		false ->
+% 			timer:sleep(1000),
+% 			wait_for_setup(N-1)
+% 	end.
 
-startapps() ->
-	case application:get_env(bkdcore,startapps) of
-		{ok,L} ->
-			[spawn(fun() -> wait_for_setup(10), application:start(App,permanent) end) || App <- L];
-		_X ->
-			ok
-	end.
+% startapps() ->
+% 	case application:get_env(bkdcore,startapps) of
+% 		{ok,L} ->
+% 			[spawn(fun() -> wait_for_setup(10), application:start(App,permanent) end) || App <- L];
+% 		_X ->
+% 			ok
+% 	end.
 
 set_nodes_groups(N,G) ->
 	DoStart = ets:info(bkdcore_nodes,size) == 0,
@@ -668,7 +668,7 @@ set_nodes_groups(N,G) ->
 		ok ->
 			case DoStart of
 				true ->
-					startapps(),
+					% startapps(),
 					ok;
 				false ->
 					ok
