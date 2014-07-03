@@ -2349,10 +2349,10 @@ int2hex(N) when N =< 16#FF ->
 	dec2hex(<<N>>);
 int2hex(N) when N =< 16#FFFF ->
 	dec2hex(<<N:16>>);
-int2hex(N) when N =< 16#FFFFFF ->
+int2hex(N) when N =< 16#FFFFFFFF ->
 	dec2hex(<<N:32>>);
 int2hex(N) ->
-	dec2hex(<<N:64>>).
+	dec2hex(<<N:64>>).	
 
 dec2hex(<<_/binary>> = Bin) ->
     <<<<(hex0(H)), (hex0(L))>> || <<H:4, L:4>> <= Bin>>;
