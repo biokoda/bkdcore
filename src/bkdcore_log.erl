@@ -33,7 +33,6 @@ conftypes() ->
 
 start_lager() ->
 	StartLager = fun() ->
-		%?PRT("Lager - loading"),
 		case util:is_app_running(compiler) of
 			false ->
 				application:start(compiler);

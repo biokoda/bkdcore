@@ -18,12 +18,6 @@ handle_call(stop, _, P) ->
 	{stop, shutdown, stopped, P}.
 
 handle_cast({start_mochiweb},P) ->
-	case butil:is_app_running(lager) of
-		false ->
-			application:start(lager);
-		_ ->
-			ok
-	end,
 	{ok,Port1} = application:get_env(bkdcore,webport),
 	case application:get_env(bkdcore,stathandler) of
 		{ok,true} ->

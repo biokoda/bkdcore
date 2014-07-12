@@ -14,7 +14,7 @@
 #include <CoreServices/CoreServices.h>
 #include <CoreFoundation/CFDate.h>
 
-
+// gcc -lobjc -framework CoreFoundation -framework CoreServices c_src/fswatcher.m -o /priv/fswatcher
 
 void EventStreamCallback(ConstFSEventStreamRef sref, void* user_data, size_t numEvents, void* eventPaths,
                                   const FSEventStreamEventFlags sflags[], const FSEventStreamEventId seid[]);

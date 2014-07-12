@@ -2253,8 +2253,8 @@ decode_percent(L,[$%,$u,A,B,C,D|T]) ->
 decode_percent(L,[$%,A,B|T]) ->
 	{ok, [NA],_} = io_lib:fread("~16u", [A,B]),
 	decode_percent([NA|L], T);
-decode_percent(L,[$+|T]) ->
-	decode_percent([$\s|L], T);
+% decode_percent(L,[$+|T]) ->
+% 	decode_percent([$\s|L], T);
 decode_percent(L,[C|T]) ->
 	decode_percent([C|L], T);
 decode_percent(L,[]) ->
@@ -2278,8 +2278,8 @@ encode_percent([], _, Acc) ->
     lists:reverse(Acc);
 encode_percent([C | Rest],T, Acc) when ?QS_SAFE(C) ->
     encode_percent(Rest,T, [C | Acc]);
-encode_percent([$\s | Rest], T, Acc) ->
-    encode_percent(Rest, T, [$+ | Acc]);
+% encode_percent([$\s | Rest], T, Acc) ->
+%     encode_percent(Rest, T, [$+ | Acc]);
 encode_percent([$%,A,B|Rest],T,Acc) ->
 	encode_percent(Rest,T,[B,A,$%|Acc]);
 encode_percent([C | Rest], T, Acc) when C =< 255 ->
