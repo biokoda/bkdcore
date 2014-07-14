@@ -15,7 +15,6 @@ init() ->
 	application:start(bkdcore,permanent).
 
 start(_Type, _Args) ->
-	io:format("Starting bkdcore~n"),
 	application:start(asn1),
 	application:start(distreg),
 	application:start(yamerl),
@@ -55,7 +54,7 @@ start(_Type, _Args) ->
 		end 
 	end || {Key,Val1} <- Params, lists:member(Key,[key,crt,pem,statepath])],
 
-	io:format("Application params ~p~n",[application:get_all_env(bkdcore)]),
+	% io:format("Application params ~p~n",[application:get_all_env(bkdcore)]),
 	
 	application:set_env(bkdcore,starttime,os:timestamp()),
 	application:set_env(bkdcore,randnum,erlang:phash2([Name,now()])),
