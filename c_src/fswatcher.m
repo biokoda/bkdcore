@@ -3,7 +3,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // Console app that prints path to folder where a file has changed.
-
 #include <objc/Object.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,7 +14,7 @@
 #include <CoreServices/CoreServices.h>
 #include <CoreFoundation/CFDate.h>
 
-
+// gcc -lobjc -framework CoreFoundation -framework CoreServices c_src/fswatcher.m -o /priv/fswatcher
 
 void EventStreamCallback(ConstFSEventStreamRef sref, void* user_data, size_t numEvents, void* eventPaths,
                                   const FSEventStreamEventFlags sflags[], const FSEventStreamEventId seid[]);
@@ -43,30 +42,38 @@ static void user_input(CFSocketRef s, CFSocketCallBackType type,
 	}
 }
 
+
+
+
+
 int main(int argc, char *argv[])
 {
-	if (argc != 2)
+  int i = 0;
+	if (argc <= 1)
 	{
 		printf("Usage: %s root/path/to/watch\r\n",argv[0]);
 		return EXIT_SUCCESS;
 	}
 
-	CFAbsoluteTime latency = 0.5;
-	CFStringRef pathstr  = CFStringCreateWithCString(kCFAllocatorDefault, argv[1], kCFStringEncodingUTF8);
-  CFTypeRef   cfValues[] = { pathstr };
-  CFArrayRef paths = CFArrayCreate( kCFAllocatorDefault, cfValues, 1, &kCFTypeArrayCallBacks );
+  for (i = 1; i < argc; i++)
+  {
+    CFAbsoluteTime latency = 0.5;
+    CFStringRef pathstr  = CFStringCreateWithCString(kCFAllocatorDefault, argv[i], kCFStringEncodingUTF8);
+    CFTypeRef   cfValues[] = { pathstr };
+    CFArrayRef paths = CFArrayCreate( kCFAllocatorDefault, cfValues, 1, &kCFTypeArrayCallBacks );
 
-  FSEventStreamRef fsstream = FSEventStreamCreate(NULL,
-         &EventStreamCallback,
-         NULL,
-         paths,
-         kFSEventStreamEventIdSinceNow,
-         latency,
-         kFSEventStreamCreateFlagNone
-   );
+    FSEventStreamRef fsstream = FSEventStreamCreate(NULL,
+           &EventStreamCallback,
+           NULL,
+           paths,
+           kFSEventStreamEventIdSinceNow,
+           latency,
+           kFSEventStreamCreateFlagNone
+     );
 
-  FSEventStreamScheduleWithRunLoop(fsstream, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-  FSEventStreamStart(fsstream);
+    FSEventStreamScheduleWithRunLoop(fsstream, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    FSEventStreamStart(fsstream);
+  }
 
   CFSocketRef	socket;
   socket = CFSocketCreateWithNative(NULL, fileno(stdin), kCFSocketReadCallBack, user_input, NULL);
@@ -77,3 +84,7 @@ int main(int argc, char *argv[])
 
 	return EXIT_SUCCESS;
 }
+
+
+
+
