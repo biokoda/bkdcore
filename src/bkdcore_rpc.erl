@@ -372,8 +372,17 @@ exec(Home,Msg) ->
 			gen_server:cast(Home,decr_callcount);
 		{From,{Mod,Func,Param}} when Mod /= file, Mod /= filelib, Mod /= init, 
 									Mod /= io, Mod /= os, Mod /= erlang, Mod /= code ->
+			% Start = os:timestamp(),
 			case catch apply(Mod,Func,Param) of
 				X when From /= undefined ->
+					% Stop = os:timestamp(),
+					% Diff = timer:now_diff(Stop,Start),
+					% case Diff > 10000 of
+					% 	true ->
+					% 		?ERR("High call time ~p ~p",[Diff,{Func,Param}]);
+					% 	_ ->
+					% 		ok
+					% end,
 					gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,X}},[compressed,{minor_version,1}])});
 				_ ->
 					ok
