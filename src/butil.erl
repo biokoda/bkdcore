@@ -1280,13 +1280,27 @@ rectojson([],_,_,L) ->
 % record to proplist
 rec2prop(Rec) ->
 	rec2prop(Rec,get({recinfo,element(1,Rec)})).
+rec2prop(Rec,jsonterm) ->
+	rec2prop(Rec,get({recinfo,element(1,Rec)}),jsonterm);
 rec2prop(Rec, RecordFields) ->
 	loop_rec(RecordFields, 1, Rec, []).
+rec2prop(Rec, RecordFields,jsonterm) ->
+	loop_rec(RecordFields, 1, Rec, [],jsonterm).
 
 loop_rec([H|T], N, Rec, L) ->
 	loop_rec(T, N+1, Rec, [{H, element(N+1, Rec)}|L]);
 loop_rec([], _, _, L) ->
 	L.
+
+loop_rec([H|T], N, Rec, L, jsonterm) ->
+	loop_rec(T, N+1, Rec, [{capitalize(tolist(H)), element(N+1, Rec)}|L], jsonterm);
+loop_rec([], _, _, L, jsonterm) ->
+	L.
+
+capitalize(S) ->
+    F = fun([H|T]) -> [string:to_upper(H) | string:to_lower(T)] end,
+    [H|T] = string:join(lists:map(F, string:tokens(S, "_")), ""),
+ 	[string:to_lower(H)|T].
  
 % % convert prop list to record
 prop2rec(Prop,RecName) ->
