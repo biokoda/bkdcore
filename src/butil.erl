@@ -1700,13 +1700,11 @@ value_pairs(Data) ->
 value_pair({C,V}) ->
 	case V of
 		V when is_integer(V) ->
-			butil:tolist(C) ++ "=" ++ butil:tolist(V);
+			[butil:tolist(C), "=", butil:tolist(V)];
 		V when is_float(V) ->
-			butil:tolist(C) ++ "=" ++ butil:tolist(V);
-		V when is_list(V) ->
-			butil:tolist(C) ++ "=" ++ sqlquote(V);
-		V when is_binary(V) ->
-			butil:tolist(C) ++ "='" ++ butil:tolist(V)++"'"
+			[butil:tolist(C), "=",butil:tolist(V)];
+		V when is_list(V); is_binary(V); is_atom(V) ->
+			[butil:tolist(C), "=", sqlquote(V)]
 	end.
 
 insert_pair({C,D}) ->
@@ -1715,12 +1713,10 @@ insert_pair({C,D}) ->
 			{butil:tolist(C), butil:tolist(D)};
 		D when is_float(D) ->
 			{butil:tolist(C), butil:tolist(D)};
-		D when is_list(D) ->
+		D when is_list(D); is_binary(D); is_atom(D) ->
 			{butil:tolist(C), sqlquote(D)};
 		D when D==undefined ->
-			{};
-		D when is_binary(D) ->
-			{butil:tolist(C), sqlquote(D)}
+			{}
 	end.
 
 insert_pairs(D) ->
