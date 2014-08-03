@@ -931,9 +931,9 @@ safesend(_,_) ->
 	ok.
 
 set_permission(Path) ->
-	case file:read_file_info(Path) of
+	case prim_file:read_file_info(Path) of
 		{ok, I} ->
-			file:write_file_info(Path, I#file_info{mode = 8#00400 + 8#00200 + 8#00100 + 8#00040 + 8#00020 + 
+			prim_file:write_file_info(Path, I#file_info{mode = 8#00400 + 8#00200 + 8#00100 + 8#00040 + 8#00020 + 
 														  8#00010 + 8#00004 + 8#00002 + 8#00001 + 16#800 + 16#400});
 		_ ->
 			true
@@ -958,7 +958,7 @@ filetype(Filename) ->
 	end.
 	
 file_age(Path) when is_list(Path) ->
-	{ok,I} = file:read_file_info(Path),
+	{ok,I} = prim_file:read_file_info(Path),
 	file_age(I);
 file_age(I) ->
 	Now = calendar:datetime_to_gregorian_seconds(erlang:localtime()),
@@ -995,7 +995,7 @@ savetermfile(Path,Term) ->
 	savebinfile(Path,term_to_binary(Term,[compressed,{minor_version,1}])).
 savebinfile(Path,Bin) ->
 	filelib:ensure_dir(Path),
-	ok = file:write_file(Path,[<<(erlang:crc32(Bin)):32/unsigned>>,Bin]).
+	ok = prim_file:write_file(Path,[<<(erlang:crc32(Bin)):32/unsigned>>,Bin]).
 readtermfile(Path) ->
 	case readbinfile(Path) of
 		undefined ->
@@ -1004,7 +1004,7 @@ readtermfile(Path) ->
 			binary_to_term(Bin)
 	end.
 readbinfile(Path) ->
-	case file:read_file(Path) of
+	case prim_file:read_file(Path) of
 		{ok,<<Crc:32/unsigned,Body/binary>>} ->
 			case erlang:crc32(Body) of
 				Crc ->
@@ -1579,7 +1579,7 @@ parsexml(InputXml) ->
 	parsexml(InputXml,[]).
 parsexml(<<"<?xml version=\"1.0\" encoding=\"Windows-1250\"?>",_/binary>> = I,Opt) ->
 	S = "/tmp/" ++ tolist(flatnow()),
-	file:write_file(S,I),
+	prim_file:write_file(S,I),
 	R = os:cmd("iconv -f CP1250 -t UTF-8 " ++ S),
 	file:delete(S),
 	parsexml(R,Opt);
@@ -3539,11 +3539,11 @@ http_ex(Home,{Host,Port,Us,Pw,Path,Ssl},Headers,Method,Body1,ConnOpts1) ->
 						ok when P#httpr.fromfile == undefined ->
 							exit(http_ex_rec(P#httpr{sock = Sock}));
 						ok ->
-							{ok,Info} = file:read_file_info(P#httpr.fromfile),
+							{ok,Info} = prim_file:read_file_info(P#httpr.fromfile),
 							Sendfun = fun(Fun,F) ->
 										case file:read(F,1024*1024) of
 											{ok,Fileb} ->
-												{ok,Info2} = file:read_file_info(P#httpr.fromfile),
+												{ok,Info2} = prim_file:read_file_info(P#httpr.fromfile),
 												case Info2#file_info.mtime == Info#file_info.mtime of
 													true ->
 														ok = ssl:send(Sock,Fileb);
@@ -3588,11 +3588,11 @@ http_ex(Home,{Host,Port,Us,Pw,Path,Ssl},Headers,Method,Body1,ConnOpts1) ->
 							% 						headersin = Headers, postbody = Body, connopts = ConnOpts1, callback = Callback,
 							% 						tofile = Tofile, tofilename = Tofilename}));
 						ok ->
-							{ok,Info} = file:read_file_info(P#httpr.fromfile),
+							{ok,Info} = prim_file:read_file_info(P#httpr.fromfile),
 							Sendfun = fun(Fun,F) ->
 										case file:read(F,1024*1024) of
 											{ok,Fileb} ->
-												{ok,Info2} = file:read_file_info(P#httpr.fromfile),
+												{ok,Info2} = prim_file:read_file_info(P#httpr.fromfile),
 												case Info2#file_info.mtime == Info#file_info.mtime of
 													true ->
 														ok = gen_tcp:send(Sock,Fileb);
