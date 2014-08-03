@@ -3794,5 +3794,10 @@ msToDate(Milliseconds) ->
    { Date,_Time} = calendar:gregorian_seconds_to_datetime(Seconds),
    Date.
 
-
+is_proplist(List) ->
+    is_list(List) andalso
+        lists:all(fun({_, _}) -> true;
+                     (_)      -> false
+                  end,
+                  List).
 
