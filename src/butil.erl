@@ -460,7 +460,12 @@ set_cookie(#arg{} = A,Name,Val,SecsValid) ->
 								cookie_domain((A#arg.headers)#headers.host));
 set_cookie(R,N,V,Secs) ->
 	mochiweb_cookies:cookie(N,V,[{path, "/"},{max_age,Secs},{domain,cookie_domain(R:get_header_value("host"))}]).
-			
+
+add_params_mochiweb_request(Items)->
+	erlang:put(mochiweb_request_qs, Items).			
+remove_params_mochiweb_request(Items)->
+	erlang:put(mochiweb_request_qs, lists:filter(fun(X) -> lists:member(element(1,X),Items) /= true end, erlang:get(mochiweb_request_qs))).	
+
 form_validation(L) ->
 	form_validation([],L).
 form_validation(E,[{password, [_|_] = P}|T]) when length(P) =< 30, length(P) > 5 ->
@@ -3800,4 +3805,6 @@ is_proplist(List) ->
                      (_)      -> false
                   end,
                   List).
+
+
 
