@@ -218,6 +218,8 @@ nodelist(G) ->
 % 			FuncNameAtom(_) ->
 % 				undefined.
 mkmodule(Mod, T) ->
+	mkmodule(Mod, T, mod).
+mkmodule(Mod, T, Ret) ->
 	Modatr = erl_syntax:attribute(
 	       erl_syntax:atom(module),
 	       [erl_syntax:atom(Mod)]),
@@ -244,7 +246,13 @@ mkmodule(Mod, T) ->
 	L = [erl_syntax:revert(X) || X <- [Modatr,Export|Funs]++Funs1++Funs2],
 	{ok, Mod, Bin} = compile:forms(L, [verbose, report_errors]),
 	code:purge(Mod),
-	code:load_binary(Mod, atom_to_list(Mod) ++ ".erl", Bin).
+	MR = code:load_binary(Mod, atom_to_list(Mod) ++ ".erl", Bin),
+	case Ret of
+		mod ->
+			MR;
+		bin ->
+			{ok, Mod, Bin}
+	end.
 
 
 nodebyip(IP) ->
