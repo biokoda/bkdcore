@@ -3525,6 +3525,7 @@ http_ex(Home,{Host,Port,Us,Pw,Path,Ssl},Headers,Method,Body1,ConnOpts1) ->
 		_ ->
 			Body = {fromfile,P1#httpr.fromfile}
 	end,
+	put(path,Path),
 	Httpheadbody = httphead_body({Host,Port,Us,Pw,Path,Ssl},Headers,Method,Body),
 	P = P1#httpr{homeproc = Home,ssl = Ssl, method = Method, %recv_timeout = RecvTimeout,
 													headersin = Headers, postbody = Body, connopts = ConnOpts1 %callback = Callback,
@@ -3764,6 +3765,7 @@ http_ex_rec(P) ->
 		{_,S1} when S1 /= Sock ->
 			http_ex_rec(P);
 		X ->
+			io:format("Respy ~p ~p ~p~n",[get(path),P#httpr.status,X]),
 			X
 		% after P#httpr.recv_timeout ->
 		after P#httpr.recv_timeout ->

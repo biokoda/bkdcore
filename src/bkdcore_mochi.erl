@@ -103,43 +103,16 @@ http_req(Req) ->
 			Req:not_found()
 	end.
  
-% http_req("www." ++ Rem, Req) ->	% remove leading "www." ; removed!
-% 	http_req(Rem,Req);
-% http_req("beta.something.xyz"++_,R) ->
-% 	some_mod:out(R),
-% 	ok;	
-% http_req(X, Req) ->
-% 	Req:respond({404, [{"Content-Type", "text/plain"}],
-%              <<"Unknown host">>}),
-% 	ok.
-
-http_req(X, Req) ->
-	DomainAtm = butil:toatom(X),
-	case catch apply(bkdcore_mochi_conf,DomainAtm,[]) of
+http_req(Host, Req) ->
+	case catch apply(bkdcore_mochi_conf,mod,[Host]) of
 		{'EXIT',Err} ->
-			case catch apply(bkdcore_mochi_conf,'*',[]) of
-				{'EXIT', _} ->
-					lager:error("trying to access domain ~p but got error ~p instead",[X,Err]),
-					Req:respond({404, [{"Content-Type", "text/plain"}],
- 	           		 <<"Unknown host">>});
-				DefMod ->
-					apply(DefMod,out,[Req])
-			end,
-			ok;
+			lager:error("trying to access domain ~p but got error ~p instead",[Host,Err]),
+			Req:respond({404, [{"Content-Type", "text/plain"}],
+           		 <<"Unknown host">>});
 		ExMod ->
 			apply(ExMod,out,[Req]),
 			ok
 	end.
-	% case butil:ds_val(DomainAtm,butil:ds_val(exports,bkdcore_mochi_conf:module_info())) of
-	% 	undefined ->
-	% 		Req:respond({404, [{"Content-Type", "text/plain"}],
- 	%             <<"Unknown host">>}),
-	% 		ok;
-	% 	_ ->
-	% 		Mod = apply(bkdcore_mochi_conf,butil:toatom(X),[]),
-	% 		apply(Mod,out,[Req]),
-	% 		ok
-	% end.
 
 
 
