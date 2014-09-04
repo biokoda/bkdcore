@@ -3,7 +3,7 @@
 % file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -module(bkdcore_mochi).
 -behaviour(gen_server).
--export([print_info/0, start/0, stop/0, init/1, handle_call/3, 
+-export([register/0,print_info/0, start/0, stop/0, init/1, handle_call/3, 
 		 handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([http_req/1,http_statreq/1]).
 
@@ -115,7 +115,8 @@ http_req(Host, Req) ->
 	end.
 
 
-
+register() ->
+	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
 start() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 stop() ->
