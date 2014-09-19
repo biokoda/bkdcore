@@ -4,6 +4,7 @@
 -module(bkdcore_rpc).
 -behaviour(gen_server).
 -include("bkdcore.hrl").
+-compile([{parse_transform, lager_transform}]).
 % API
 -export([call/2,cast/2,async_call/3,multicall/2,is_connected/1]).
 % gen_server
@@ -132,7 +133,7 @@ getpid(Node) ->
 	Pid.
 
 -record(dp,{sock,sendproc,calln = 0,callsininterval = 0, callcount = 0,
-			permanent = false, direction,transport,
+			permanent = false, direction,transport, tunnelstate,
 			isinit = false, connected_to,tunnelmod, reconnecter}).
 
 handle_call(_Msg,_,#dp{direction = sender, sock = undefined} = P) ->
@@ -186,20 +187,27 @@ handle_cast(decr_callcount,P) ->
 handle_cast(_, P) ->
 	{noreply, P}.
 
-handle_info({tcp,_S,<<Key:40/binary,Rem/binary>>},#dp{direction = receiver,isinit = false} = P) ->
+handle_info({tcp,S,<<Key:40/binary,Rem/binary>>},#dp{direction = receiver,isinit = false} = P) ->
 	Key = bkdcore:rpccookie(),
 	inet:setopts(P#dp.sock,[{active, once}]),
 	case Rem of
 		<<>> ->
 			{noreply,P#dp{isinit = true}};
-		<<"tunnel",Mod/binary>> ->
+		<<"tunnel,",Mod1/binary>> ->
+			[_From,Mod] = binary:split(Mod1,<<",">>),
+			ok = gen_tcp:send(S,<<"ok">>),
 			{noreply,P#dp{direction = tunnel, isinit = true, permanent = true, 
 						  tunnelmod = binary_to_existing_atom(Mod,latin1)}}
 	end;
-handle_info({tcp,_,Bin},#dp{direction = tunnel} = P) ->
-	apply(P#dp.tunnelmod,tunnel_bin,[Bin]),
+handle_info({tcp,_S,Bin},#dp{direction = tunnel} = P) ->
+	case catch apply(P#dp.tunnelmod,tunnel_bin,[P#dp.tunnelstate,Bin]) of
+		{'EXIT',_Err}  ->
+			State = P#dp.tunnelstate;
+		State ->
+			ok
+	end,
 	inet:setopts(P#dp.sock,[{active, once}]),
-	{noreply,P};
+	{noreply,P#dp{tunnelstate = State}};
 handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 	case get(Id) of
 		undefined ->
@@ -269,6 +277,7 @@ handle_info({tcp_closed,_},#dp{direction = receiver} = P) ->
 	[exit(Pid,tcp_closed) || {_Id,{_,Pid}} <- get(), is_pid(Pid)],
 	{stop,normal,P};
 handle_info({tcp_closed,_},P) ->
+	lager:debug("Connection closed type ~p",[P#dp.direction]),
 	{stop,normal,P};
 handle_info(timeout,P) ->
 	case P#dp.callsininterval of
@@ -323,16 +332,21 @@ init([]) ->
 init([{From,FromRef},Node]) ->
 	case distreg:reg({bkdcore,Node}) of
 		ok ->
-			{IP,Port} = bkdcore:node_address(Node),
-			case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,once},
-											{send_timeout,2000},{nodelay,true}],2000) of
-				{ok,S} ->
-					ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
-					erlang:send_after(5000,self(),timeout),
-					{ok, #dp{sock = S, direction = sender, connected_to = Node}};
-				_Err ->
-					erlang:send_after(1000,self(),reconnect),
-					{ok,#dp{direction = sender, connected_to = Node}}
+			case bkdcore:node_address(Node) of
+				{IP,Port} ->
+					case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,once},
+													{send_timeout,2000},{nodelay,true}],2000) of
+						{ok,S} ->
+							ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
+							erlang:send_after(5000,self(),timeout),
+							{ok, #dp{sock = S, direction = sender, connected_to = Node}};
+						_Err ->
+							erlang:send_after(1000,self(),reconnect),
+							{ok,#dp{direction = sender, connected_to = Node}}
+					end;
+				undefined ->
+					lager:error("Node address does not exist ~p",[Node]),
+					{stop,invalidnode}
 			end;
 		name_exists ->
 			From ! {FromRef,name_exists},
