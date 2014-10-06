@@ -1739,8 +1739,8 @@ insert_pairs([Vp|T],Cols,Vals) ->
 					AddVal = Dv,
 					AddCol = Cv;
 				_ ->
-					AddVal = Vals ++ "," ++ Dv,
-					AddCol = Cols ++ "," ++ Cv
+					AddVal = [Vals,",", Dv],
+					AddCol = [Cols, ",", Cv]
 			end,	
 			insert_pairs(T,AddCol,AddVal)
 	end.
@@ -1959,12 +1959,9 @@ sqlquote(X) when is_float(X) ->
 -define(ESCCHARS(X), X == $"; X == $'; X == $%; X == $\\; X < $\s).
 sqlunescape(X) ->
 	re:replace(X, "''", "'", [global, {return, binary}, unicode]).
- sqlescape(X) ->
+sqlescape(X) ->
  	re:replace(X, "'", "''", [global, unicode]).
-% sqlescape(X) when is_binary(X); is_list(X) ->
-% 	sqlescape(X,[]);
-% sqlescape(X) ->
-% 	X.
+
 % sqlescape([$\\,X|T],L) when ?ESCCHARS(X) ->
 % 	sqlescape(T,[X,$\\|L]);
 % sqlescape([X|T],L) when ?ESCCHARS(X) ->
