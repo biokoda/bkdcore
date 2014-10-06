@@ -335,7 +335,7 @@ stop() ->
 	gen_server:call(?MODULE, stop).
 
 register() ->
-	supervisor:start_child(bkdweb_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
+	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
 
 print_info() ->
 	gen_server:cast(?MODULE, {print_info}).

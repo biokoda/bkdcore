@@ -277,7 +277,7 @@ init([]) ->
 	
 
 register() ->
-	supervisor:start_child(bkdweb_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
+	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
 	
 reload() ->
 	code:purge(?MODULE),
