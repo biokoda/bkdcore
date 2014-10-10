@@ -3,7 +3,7 @@
 % file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -module(bkdcore_mochi).
 -behaviour(gen_server).
--export([register/0,print_info/0, start/0, stop/0, init/1, handle_call/3, 
+-export([register/0, register/1, print_info/0, start/0, stop/0, init/1, handle_call/3, 
 		 handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([http_req/1,http_statreq/1]).
 
@@ -17,6 +17,26 @@ handle_call({print_info}, _, P) ->
 handle_call(stop, _, P) ->
 	{stop, shutdown, stopped, P}.
 
+handle_cast({start_mochiweb,L},P) ->
+	F = fun(Name,Val) ->
+		case Val of
+			undefined ->
+				[];
+			_ ->
+				[{Name,Val}]
+		end
+	end,
+	[begin
+		[Port,Ssl,CaCert,Cert,Key] = butil:ds_vals([port,ssl,cacert,cert,key],Info,[8080,false,undefined,undefined,undefined]),
+		% case Ssl of
+		% 	true ->
+				mochiweb_http:start([{port, Port}, {name,list_to_atom("mochi"++butil:tolist(Port))},{ssl,Ssl}, {loop,{?MODULE,http_req}}]++
+					F(cacertfile,CaCert)++F(certfile,Cert)++F(keyfile,Key))
+		% 	false ->
+		% 		mochiweb_http:start([{port, Port}, {name,list_to_atom("mochi"++butil:tolist(Port))}, {loop,{?MODULE,ReqHandler}}])
+		% end
+	end || Info <- L],
+	{noreply,P};
 handle_cast({start_mochiweb},P) ->
 	{ok,Port1} = application:get_env(bkdcore,webport),
 	case application:get_env(bkdcore,stathandler) of
@@ -78,7 +98,10 @@ code_change(_, P, _) ->
 	{ok, P}.
 init([]) ->
 	gen_server:cast(?MODULE,{start_mochiweb}),
-	{ok, #bm{}}.
+	{ok, #bm{}};
+init(Servers) ->
+	gen_server:cast(?MODULE,{start_mochiweb,Servers}),
+	{ok,#bm{}}.
 
 http_statreq(Req) ->
 	case catch http_req(Req:get_header_value("host"),Req) of
@@ -114,7 +137,8 @@ http_req(Host, Req) ->
 			ok
 	end.
 
-
+register(Servers) ->
+	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, Servers}, permanent, 100, worker, [?MODULE]}).
 register() ->
 	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
 start() ->
