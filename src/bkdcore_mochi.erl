@@ -3,7 +3,7 @@
 % file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -module(bkdcore_mochi).
 -behaviour(gen_server).
--export([register/0, register/1, print_info/0, start/0, stop/0, init/1, handle_call/3, 
+-export([register/0, register/1, print_info/0, start/0,start/1, stop/0, init/1, handle_call/3, 
 		 handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([http_req/1,http_statreq/1]).
 
@@ -28,13 +28,9 @@ handle_cast({start_mochiweb,L},P) ->
 	end,
 	[begin
 		[Port,Ssl,CaCert,Cert,Key] = butil:ds_vals([port,ssl,cacert,cert,key],Info,[8080,false,undefined,undefined,undefined]),
-		% case Ssl of
-		% 	true ->
-				mochiweb_http:start([{port, Port}, {name,list_to_atom("mochi"++butil:tolist(Port))},{ssl,Ssl}, {loop,{?MODULE,http_req}}]++
-					F(cacertfile,CaCert)++F(certfile,Cert)++F(keyfile,Key))
-		% 	false ->
-		% 		mochiweb_http:start([{port, Port}, {name,list_to_atom("mochi"++butil:tolist(Port))}, {loop,{?MODULE,ReqHandler}}])
-		% end
+		Start = [{port, Port}, {name,list_to_atom("mochi"++butil:tolist(Port))},{ssl,Ssl}, {loop,{?MODULE,http_req}},
+				 {ssl_opts,F(cacertfile,CaCert)++F(certfile,Cert)++F(keyfile,Key)}],
+		mochiweb_http:start(Start)
 	end || Info <- L],
 	{noreply,P};
 handle_cast({start_mochiweb},P) ->
@@ -138,11 +134,13 @@ http_req(Host, Req) ->
 	end.
 
 register(Servers) ->
-	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, Servers}, permanent, 100, worker, [?MODULE]}).
+	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, [Servers]}, permanent, 100, worker, [?MODULE]}).
 register() ->
 	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
 start() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start(Servers) ->
+	gen_server:start_link({local, ?MODULE}, ?MODULE, Servers, []).
 stop() ->
 	gen_server:call(?MODULE, stop).
 print_info() ->
