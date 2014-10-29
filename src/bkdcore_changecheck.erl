@@ -341,7 +341,7 @@ reload(Path,Name,Op) ->
 									growl(io_lib:format("Compiled ~p~n", [Path ++ "/" ++ Name]),"success")
 							end;
 						X ->
-							lager:info("Unable to compile dtl ~p~n", [X]),
+							lager:error("Unable to compile dtl ~p~n", [X]),
 							case Op of
 								make ->
 									exit(compile_error);
@@ -407,7 +407,7 @@ reload(Path,Name,Op) ->
 					code:load_binary(Mod, Name, Bin),
 					catch Mod:reload();
 				X ->
-					lager:info("Unable to compile ~p ~p~n", [Path ++ "/" ++ Name, X]),
+					lager:error("Unable to compile ~p ~p~n", [Path ++ "/" ++ Name, X]),
 					case Op of
 						make ->
 							% exit(compile_error);
