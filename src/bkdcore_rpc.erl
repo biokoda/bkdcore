@@ -196,6 +196,7 @@ handle_info({tcp,S,<<Key:40/binary,Rem/binary>>},#dp{direction = receiver,isinit
 		<<"tunnel,",Mod1/binary>> ->
 			[_From,Mod] = binary:split(Mod1,<<",">>),
 			ok = gen_tcp:send(S,<<"ok">>),
+			lager:debug("Started tunnel from ~p",[_From]),
 			{noreply,P#dp{direction = tunnel, isinit = true, permanent = true, 
 						  tunnelmod = binary_to_existing_atom(Mod,latin1)}}
 	end;
