@@ -973,27 +973,32 @@ file_age(I) ->
 deldir(Root) ->
 	F = fun(F, Dir, [H|T]) ->
 			Path = filename:join([Dir,  H]),
-			Info = file:read_file_info(Path),
-			case Info#file_info.type of
-				regular ->
-					file:delete(Path),
-					F(F,Dir,T);
-				symlink ->
-					file:delete(Path),
-					F(F,Dir,T);
-				_ when H == "." ->
-					F(F,Dir,T);
-				_ when H == ".." ->
-					F(F,Dir,T);
-				directory ->
-					case file:list_dir(Path) of
-						{ok,L} ->
-							F(F,Path,L),
+			case file:read_file_info(Path) of
+				{ok,Info} ->
+					case Info#file_info.type of
+						regular ->
+							file:delete(Path),
 							F(F,Dir,T);
+						symlink ->
+							file:delete(Path),
+							F(F,Dir,T);
+						_ when H == "." ->
+							F(F,Dir,T);
+						_ when H == ".." ->
+							F(F,Dir,T);
+						directory ->
+							case file:list_dir(Path) of
+								{ok,L} ->
+									F(F,Path,L),
+									F(F,Dir,T);
+								_ ->
+									F(F,Dir,T)
+							end;
 						_ ->
 							F(F,Dir,T)
 					end;
 				_ ->
+					file:delete(Path),
 					F(F,Dir,T)
 			end;
 			(_F,Dir,[]) ->
