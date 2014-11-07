@@ -340,6 +340,8 @@ reload(Path,Name,Op) ->
 								_ ->
 									growl(io_lib:format("Compiled ~p~n", [Path ++ "/" ++ Name]),"success")
 							end;
+						{ok,_} ->
+							ok;
 						X ->
 							lager:error("Unable to compile dtl ~p~n", [X]),
 							case Op of
