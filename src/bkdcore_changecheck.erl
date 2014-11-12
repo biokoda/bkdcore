@@ -185,26 +185,26 @@ traverse_paths(Dict,[ApDep|T], Op) when ApDep == "deps"; ApDep == "apps" ->
 			case file:list_dir([butil:project_rootpath(),"/",ApDep]) of
 				{ok,L1} ->
 					L = [begin
-									case ApDep of
-										"deps" ->
-											case application:get_env(autocompile) of
-												{ok,AppList}  ->
-													case lists:member(X,AppList) of
-														true ->
-															[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/src"]),
-															lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"])];
-														false ->
-															[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"])]
-													end;
-												_ ->
+							case ApDep of
+								"deps" ->
+									case application:get_env(autocompile) of
+										{ok,AppList}  ->
+											case lists:member(X,AppList) of
+												true ->
+													[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/src"]),
+													lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"])];
+												false ->
 													[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"])]
 											end;
 										_ ->
-											[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"]),
- 									 		lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/src"]),
-									 		lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/dtl"])]
-									 end
-								end || X <- L1, hd(X) /= $.],
+											[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"])]
+									end;
+								_ ->
+									[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"]),
+								 		lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/src"]),
+							 		lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/dtl"])]
+							 end
+						end || X <- L1, hd(X) /= $.],
 					{ok,NDict} = traverse_paths(Dict,L,Op);
 				_ ->
 					NDict = Dict
