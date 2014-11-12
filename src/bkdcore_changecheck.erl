@@ -9,7 +9,7 @@
 		 insert_nodes_to_ets/1,insert_groups_to_ets/1,setcfg/1,setcfg/2,
 		 parse_yaml_groups/1]).
 -include_lib("kernel/include/file.hrl").
-
+-compile([{parse_transform, lager_transform}]).
 
 print_info() ->
 	gen_server:cast(?MODULE,{print_info}).
@@ -44,7 +44,7 @@ deser_prop(P) ->
 handle_cast({save_to_dict,{Path,Time}},P) ->
 	{noreply,P#cdat{dict = butil:ds_add(Path,Time,P#cdat.dict)}};
 handle_cast(_X, P) ->
-	io:format("~p~n~p ~p~n", [P,self(), butil:ds_tolist(P#cdat.dict)]),
+	lager:info("~p~n~p ~p", [P,self(), butil:ds_tolist(P#cdat.dict)]),
 	{noreply, P}.
 
 explodepath("apps") ->
@@ -98,7 +98,7 @@ handle_info({check_changes}, #cdat{fswatcher = undefined} = P) ->
 			ok;
 		Err ->
 			Dict = P#cdat.dict,
-			io:format("Traversing folders crashed ~p~n", [Err])
+			lager:info("Traversing folders crashed ~p", [Err])
 	end,
 	{noreply, P#cdat{dict = Dict}};
 handle_info(_X, State) -> 
@@ -109,7 +109,6 @@ terminate(_, _) ->
 code_change(_, State, _) ->
 	{ok, State}.
 init(_) ->
-	io:format("init changecheck~n"),
 	filelib:ensure_dir(butil:project_rootpath() ++ "/priv/"),
 	% If autoload_files not set, check if bkdcore is in "lib" directory. 
 	% If it is set autoload_files to false. "lib" directory is only in deployed mode.
@@ -132,7 +131,7 @@ init(_) ->
 				true ->
 					ok;
 				false ->
-					io:format("Compiling fswatcher~n"), 
+					lager:info("Compiling fswatcher~n"), 
 					os:cmd("gcc -lobjc -framework CoreFoundation -framework CoreServices " ++butil:bkdcore_path()++"/c_src/fswatcher.m -o "++
 						  butil:project_rootpath()++"/priv/fswatcher")
 			end;
@@ -172,7 +171,7 @@ folders() ->
 make() ->
 	traverse_paths(butil:ds_new(dict),folders(),make).
 startup_node() ->
-	% io:format("Startup node ~n"),
+	% lager:info("Startup node ~n"),
 	traverse_paths(butil:ds_new(dict),folders(),startupnode).
 
 traverse_paths(Dict,[ApDep|T], Op) when ApDep == "deps"; ApDep == "apps" ->
@@ -221,7 +220,7 @@ traverse_paths(Dict,[P|T], Op) ->
 		% {ok, Files} when Op == touchcfg ->
 		% 	touchcfg(P, Files);
 		_X ->
-			% io:format("Unable to read ~p, error ~p~n", [P,_X]),
+			% lager:info("Unable to read ~p, error ~p~n", [P,_X]),
 			NDict = Dict
 	end,
 	traverse_paths(NDict,T, Op);
@@ -255,7 +254,7 @@ traverse_files(Dict,Path, [H|T],Op) ->
 										false ->
 											case Path /= butil:project_rootpath() ++ "/ebin" of
 												true ->
-													io:format("Adding path ~p~n", [Path]),
+													lager:info("Adding path ~p~n", [Path]),
 													code:add_path(Path);
 												false ->
 													ok
@@ -287,7 +286,7 @@ relevant_types() ->
 	["beam","dtl","erl","hrl","json","nodes","groups","mime","cfg","config"].
 	
 reload(Path,Name,Op) ->
-	% io:format("~p~n", [Name]),
+	% lager:info("~p~n", [Name]),
 	FileParts = string:tokens(Name, "."),
 	case catch application:get_env(bkdcore,docompile) of
 		{ok,Docompile} when Docompile == true; Docompile == false ->
@@ -298,7 +297,7 @@ reload(Path,Name,Op) ->
 	case lists:reverse(FileParts) of
 		["beam"|_] when Op /= make, Op /= first, Op /= startupnode ->
 				spawn(fun() ->
-					io:format("Changed beam ~p~n", [Path ++ "/" ++ Name]),
+					lager:info("Changed beam ~p~n", [Path ++ "/" ++ Name]),
 					[Root|_] = FileParts,
 					Module = list_to_atom(Root),
 					% Only load beam if not loaded yet
@@ -329,7 +328,7 @@ reload(Path,Name,Op) ->
 				first ->
 					ok;
 				_ ->					
-					io:format("DTL changed ~p~n", [Path ++ "/" ++ Root]),
+					lager:info("DTL changed ~p~n", [Path ++ "/" ++ Root]),
 					EbinPath = filename:join(lists:reverse(tl(lists:reverse(filename:split(Path)))))++"/ebin/",
 					filelib:ensure_dir(EbinPath),
 					case erlydtl:compile(Path ++ "/" ++ Name, list_to_atom(Root),
@@ -341,8 +340,10 @@ reload(Path,Name,Op) ->
 								_ ->
 									growl(io_lib:format("Compiled ~p~n", [Path ++ "/" ++ Name]),"success")
 							end;
+						{ok,_} ->
+							ok;
 						X ->
-							io:format("Unable to compile dtl ~p~n", [X]),
+							lager:error("Unable to compile dtl ~p~n", [X]),
 							case Op of
 								make ->
 									exit(compile_error);
@@ -367,7 +368,7 @@ reload(Path,Name,Op) ->
 								{ok, I} = file:read_file_info(EbinPath),
 								gen_server:cast(?MODULE,{save_to_dict,{Root ++ ".beam",I#file_info.mtime}})
 					  end,
-			io:format("Recompiling erl ~p~n", [Name]),
+			lager:info("Recompiling erl ~p~n", [Name]),
 			case application:get_env(bkdcore,compileopts) of
 				{ok,CompileOpts} ->
 					ok;
@@ -395,7 +396,7 @@ reload(Path,Name,Op) ->
 								_ ->
 									growl(io_lib:format("Compiled ~p~n", [Path ++ "/" ++ Name]),"success")
 							end,
-							io:format("Compiled ~p~n", [Path ++ "/" ++ Name]);
+							lager:info("Compiled ~p~n", [Path ++ "/" ++ Name]);
 						_ ->
 							case Op of
 								make ->
@@ -403,12 +404,12 @@ reload(Path,Name,Op) ->
 								_ ->
 									growl(io_lib:format("Compiled ~p~n", [Path ++ "/" ++ Name]),"success")
 							end,
-							io:format("Compile warnings ~p ~p~n", [Path ++ "/" ++ Name, W])
+							lager:info("Compile warnings ~p ~p~n", [Path ++ "/" ++ Name, W])
 					end,
 					code:load_binary(Mod, Name, Bin),
 					catch Mod:reload();
 				X ->
-					io:format("Unable to compile ~p ~p~n", [Path ++ "/" ++ Name, X]),
+					lager:error("Unable to compile ~p ~p~n", [Path ++ "/" ++ Name, X]),
 					case Op of
 						make ->
 							% exit(compile_error);
@@ -428,36 +429,36 @@ reload(Path,Name,Op) ->
 						{ok,L} ->
 							ets:insert(bkdcore_mimetypes,L);
 						_Ex ->
-							io:format("Parsing mime.types ~p failed ~p~n", [Path++"/"++Name,_Ex])
+							lager:info("Parsing mime.types ~p failed ~p~n", [Path++"/"++Name,_Ex])
 					end
 			end;
 		["hrl",Root] when Op /= first, Op /= make, Op /= startupnode ->
-			io:format("hrl changed, reloading name-matching files ~n"),
+			lager:info("hrl changed, reloading name-matching files ~n"),
 			timer:sleep(1000),
 			[reload(Path,F,Op) || F <- filelib:wildcard(Root ++ "*.erl", Path)];
 		[Ext,Root]  when (Root == "allnodes" orelse Root == "nodes") andalso Op /= startupnode andalso 
 					 Op /= make andalso (Ext == "cfg" orelse Ext == "config" orelse Ext == "yaml") ->
-			io:format("Nodes file ~p~n", [Op]),
+			lager:info("Nodes file ~p~n", [Op]),
 			insert_nodes_to_ets(Path ++ "/" ++ Name);
 		[Ext,Root] when (Root == "allgroups" orelse Root == "groups") andalso Op /= startupnode andalso 
 						Op /= make andalso (Ext == "cfg" orelse Ext == "config" orelse Ext == "yaml") ->
-			io:format("Groups file ~p~n",[Op]),
+			lager:info("Groups file ~p~n",[Op]),
 			insert_groups_to_ets(Path ++ "/" ++ Name);
 		[Ext,Root] when Op /= make andalso (Ext == "cfg" orelse Ext == "config" orelse "yaml") andalso 
 											Root /= "allgroups" andalso Root /= "allnodes" ->
-			io:format("Cfg changed ~p~n", [Path ++ "/" ++ Name]),
+			lager:info("Cfg changed ~p~n", [Path ++ "/" ++ Name]),
 			setcfg(Path++"/"++Name);
 		["json",Root] when Op /= make ->
-			io:format("Json changed ~p~n", [Path ++ "/" ++ Name]),
+			lager:info("Json changed ~p~n", [Path ++ "/" ++ Name]),
 			{ok,Bin} = file:read_file(Path ++ "/" ++ Name),
 			case catch bjson:decode(Bin) of
 				[_|_] = Obj ->
 					setcfg(Root++".json",Obj);
 				_Err ->
-					io:format("Invalid json file. ~p~n",[_Err])
+					lager:info("Invalid json file. ~p~n",[_Err])
 			end;
 		_X ->
-			% io:format("nomatch ~p",[{Op,_X}]),
+			% lager:info("nomatch ~p",[{Op,_X}]),
 			ok
 	end.
 
@@ -468,7 +469,7 @@ setcfg(Name) ->
 				[Cfg] ->
 					setcfg(Name,Cfg);
 				_Err ->
-					io:format("Cfg failed to consult ~p~n", [_Err]),
+					lager:info("Cfg failed to consult ~p~n", [_Err]),
 					false
 			end;
 		_ ->
@@ -476,7 +477,7 @@ setcfg(Name) ->
 				{ok, [[_|_] = Cfg]} ->
 					setcfg(Name,Cfg);
 				_Err ->
-					io:format("Cfg failed to consult ~p~n", [_Err]),
+					lager:info("Cfg failed to consult ~p~n", [_Err]),
 					false
 			end
 	end.
@@ -499,7 +500,7 @@ setcfg(Name,Obj) ->
 					_ ->
 						ok
 				end,
-				% io:format("Options for cfgfile ~p ~p~n",[Name,PresetCfg]),
+				% lager:info("Options for cfgfile ~p ~p~n",[Name,PresetCfg]),
 				[Autoload,Module1,TypeCallStr,OnLoad,Preload] = 
 						butil:ds_vals([autoload,mod,typeinfo,onload,preload],Obj,[true,"","","",""]),
 					case Autoload of
@@ -525,7 +526,7 @@ setcfg(Name,Obj) ->
 								TypeObj when is_list(TypeObj) ->
 									ok;
 								_X ->
-									io:format("Failed to call ~p:~p/0 for type info~n", [butil:toatom(A),butil:toatom(B)]),
+									lager:info("Failed to call ~p:~p/0 for type info~n", [butil:toatom(A),butil:toatom(B)]),
 									TypeObj = []
 							end;
 						_ ->
@@ -537,7 +538,7 @@ setcfg(Name,Obj) ->
 										TypeObj when is_list(TypeObj) ->
 											ok;
 										_X ->
-											io:format("Typeinfo call ~p returned invalid val ~p~n", [{Mt,Ft,At},_X]),
+											lager:info("Typeinfo call ~p returned invalid val ~p~n", [{Mt,Ft,At},_X]),
 											TypeObj = []
 									end
 							end
@@ -664,6 +665,7 @@ parseaddress(Addr1,Port1) ->
 % 	end.
 
 set_nodes_groups(N,G) ->
+	lager:info("Setting nodes groups ~p",[{N,G}]),
 	DoStart = ets:info(bkdcore_nodes,size) == 0,
 	try ok = insert_nodes_to_ets(N),
 		  ok = insert_groups_to_ets(G) of
@@ -677,7 +679,7 @@ set_nodes_groups(N,G) ->
 			end
 		catch
 			_:Err ->
-				io:format("Set nodes groups ~p~n",[Err]),
+				lager:info("Set nodes groups ~p~n",[Err]),
 				ok
 		end.
 
@@ -699,7 +701,7 @@ insert_nodes_to_ets([Char|_] = Path) when is_integer(Char) ->
 				[Nodes] ->
 					insert_nodes_to_ets(Nodes);	
 				Err ->
-					io:format("Unable to load nodes ~p ~p",[Err,Path]),
+					lager:info("Unable to load nodes ~p ~p",[Err,Path]),
 					false
 			end;
 		_ ->
@@ -707,7 +709,7 @@ insert_nodes_to_ets([Char|_] = Path) when is_integer(Char) ->
 				{ok,[Nodes]} ->
 					insert_nodes_to_ets(Nodes);
 				Err ->
-					io:format("Unable to load nodes ~p ~p~n", [Err,Path]),
+					lager:info("Unable to load nodes ~p ~p~n", [Err,Path]),
 					false
 			end
 	end;
@@ -759,7 +761,7 @@ insert_groups_to_ets([Char|_] = Path) when is_integer(Char) ->
 				[Groups] ->
 					insert_groups_to_ets(parse_yaml_groups(Groups));
 				Err ->
-					io:format("Unable to load nodes ~p ~p~n",[Err,Path]),
+					lager:info("Unable to load nodes ~p ~p~n",[Err,Path]),
 					false
 			end;
 		_ ->
@@ -767,7 +769,7 @@ insert_groups_to_ets([Char|_] = Path) when is_integer(Char) ->
 				{ok,[Groups]} ->
 					insert_groups_to_ets(Groups);
 				Err ->
-					io:format("Unable to load groups file: ~p~n", [Err]),
+					lager:info("Unable to load groups file: ~p~n", [Err]),
 					false
 			end
 	end;
