@@ -2430,6 +2430,16 @@ indexof(V,[_|T],I) ->
 indexof(_,[],_) ->
 	undefined.
 
+mapfind(K,V,[H|L]) ->
+	case maps:get(K,H) of
+		V ->
+			H;
+		_ ->
+			mapfind(K,V,L)
+	end;
+mapfind(_,_,[]) ->
+	false.
+
 % Returns first result of Fun while traversing list, that is not undefined or false
 find(Fun,[H|T]) ->
 	case Fun(H) of
