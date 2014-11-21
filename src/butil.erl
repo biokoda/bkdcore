@@ -2440,6 +2440,16 @@ mapfind(K,V,[H|L]) ->
 mapfind(_,_,[]) ->
 	false.
 
+mapstore(Key,Val,[H|L],Map) ->
+	case maps:get(Key,H) of
+		Val ->
+			[Map|L];
+		_ ->
+			[H|mapstore(Key,Val,L,Map)]
+	end;
+mapstore(_,_,[],Map) ->
+	[Map].
+
 % Returns first result of Fun while traversing list, that is not undefined or false
 find(Fun,[H|T]) ->
 	case Fun(H) of
