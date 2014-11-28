@@ -124,7 +124,6 @@ init(_) ->
 					Autoload = true
 			end;
 		{ok,Autoload} ->
-			io:format("HAVE AUTOLOAD ~p",[Autoload]),
 			ok
 	end,
 	case butil:get_os() of
