@@ -118,19 +118,21 @@ init(_) ->
 			PathParts = filename:split(Path),
 			case lists:reverse(PathParts) of
 				[_,"ebin",_,"lib"|_] ->
+					Autoload = false,
 					application:set_env(bkdcore,autoload_files,false);
 				_ ->
-					ok
+					Autoload = true
 			end;
-		_ ->
+		{ok,Autoload} ->
+			io:format("HAVE AUTOLOAD ~p",[Autoload]),
 			ok
 	end,
 	case butil:get_os() of
 		osx ->
-			case have_fswatcher() of
-				true ->
-					ok;
+			case Autoload andalso have_fswatcher() of
 				false ->
+					ok;
+				true ->
 					lager:info("Compiling fswatcher~n"), 
 					os:cmd("gcc -lobjc -framework CoreFoundation -framework CoreServices " ++butil:bkdcore_path()++"/c_src/fswatcher.m -o "++
 						  butil:project_rootpath()++"/priv/fswatcher")
