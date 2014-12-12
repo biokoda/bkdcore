@@ -1323,8 +1323,8 @@ capitalize(S) ->
  	[string:to_lower(H)|T].
 
 %
-% [[{<<"username">>,<<"ino">>},{<<"user_id">>,1101}]] turns this into
-% [[{<<"username">>,<<"ino">>},{<<"userId">>,1101}]]
+% [[{<<"username">>,<<"test">>},{<<"user_id">>,1101}]] turns this into
+% [[{<<"username">>,<<"test">>},{<<"userId">>,1101}]]
 capitalize_proplist_for_json(List)->
 	capitalize_proplist_for_json(List,[]).
 capitalize_proplist_for_json([],Acc)->
