@@ -208,9 +208,9 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 		R when R#pgr.status < 226 ->
 			case LoginReq of
 				true ->
-					A:respond({200,lists:flatten([kill_cookie(A,"loginaction"),R#pgr.headers,{"Content-type",R#pgr.mime},R#pgr.cookies]),R#pgr.content});
+					A:respond({R#pgr.status,lists:flatten([kill_cookie(A,"loginaction"),R#pgr.headers,{"Content-type",R#pgr.mime},R#pgr.cookies]),R#pgr.content});
 				_ ->
-					A:respond({200,lists:flatten([{"Content-Type",R#pgr.mime},
+					A:respond({R#pgr.status,lists:flatten([{"Content-Type",R#pgr.mime},
 																				{"Content-Length",iolist_size(R#pgr.content)},
 																				R#pgr.headers,R#pgr.cookies]),
 												R#pgr.content})
@@ -273,8 +273,8 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 			end;
 		_ when is_record(A,arg) ->
 			[{status, 400},{content, "text/plain",<<"Internal Server Error">>}];
-		_X ->
-			A:respond({400,[],<<"Bad Request">>})
+		X ->
+			A:respond({400,[],X#pgr.content})
 	end.
 
 validate_request(A,{M,F}) ->
@@ -1321,6 +1321,17 @@ capitalize(S) ->
     F = fun([H|T]) -> [string:to_upper(H) | string:to_lower(T)] end,
     [H|T] = string:join(lists:map(F, string:tokens(S, "_")), ""),
  	[string:to_lower(H)|T].
+
+%
+% [[{<<"username">>,<<"ino">>},{<<"user_id">>,1101}]] turns this into
+% [[{<<"username">>,<<"ino">>},{<<"userId">>,1101}]]
+capitalize_proplist_for_json(List)->
+	capitalize_proplist_for_json(List,[]).
+capitalize_proplist_for_json([],Acc)->
+	Acc;
+ capitalize_proplist_for_json([Head|Tail],Acc)->
+ 	FixedHead = [{butil:tobin(capitalize(tolist(element(1,H)))),element(2,H)}||H<-Head],
+ 	capitalize_proplist_for_json(Tail,[FixedHead|Acc]).
  
 % % convert prop list to record
 prop2rec(Prop,RecName) ->
