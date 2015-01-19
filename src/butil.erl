@@ -2953,6 +2953,8 @@ ceiling(X) ->
 
 md5(X) ->
 	dec2hex(erlang:md5(X)).
+sha256(X) ->
+	dec2hex(crypto:hash(sha256,X)).
 uuid(X) ->
 	uuid_fromhash(dec2hex(crypto:hash(sha256,X))).
 uuid_fromhash(SX) ->
