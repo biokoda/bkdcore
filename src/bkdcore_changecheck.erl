@@ -602,9 +602,9 @@ read_node(Nd) ->
 		[X|_] when is_integer(X) ->
 			case string:tokens(butil:tolist(Nd),"@") of
 				[Namestr] ->
-					{butil:tobin(Nd),"127.0.0.1",4380,"127.0.0.1",butil:toatom(Namestr++"@127.0.0.1")};
+					{butil:tobin(Nd),"127.0.0.1",44380,"127.0.0.1",butil:toatom(Namestr++"@127.0.0.1")};
 				[Namestr,Addr] ->
-					{Address,Port} = parseaddress(Addr,4380),
+					{Address,Port} = parseaddress(Addr,44380),
 					{butil:tobin(Namestr),Address,Port,Address,butil:toatom(Namestr++"@"++Address)}
 			end;
 		_ ->
@@ -637,7 +637,7 @@ parseaddress(Addr1,Port1) ->
 		[Address] ->
 			case Port1 of
 				undefined ->
-					Port = 4380;
+					Port = 44380;
 				Port ->
 					ok
 			end;
