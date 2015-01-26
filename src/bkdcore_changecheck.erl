@@ -621,7 +621,7 @@ read_node(Nd) ->
 					Dist = butil:toatom(Namestr++"@"++Address);
 				[Name,Address1] ->
 					{Address,Port} = parseaddress(Address1,Port1),
-					Dist = butil:toatom(Name1)
+					Dist = butil:toatom(Name++"@"++Address)
 			end,
 			case Pub1 of
 				undefined ->
