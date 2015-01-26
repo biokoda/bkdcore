@@ -81,7 +81,7 @@ start(_Type, _Args) ->
 				{error,_} ->
 					ok;
 				{ok,_S} ->
-					error_logger:format("Local RPC address already taken ~p:~p~n",[butil:ip_to_list(IP),RpcPort]),
+					error_logger:format("Local RPC address already taken ~p:~p~n",[butil:to_ip(IP),RpcPort]),
 					init:stop()
 			end,
 			application:start(ranch),
