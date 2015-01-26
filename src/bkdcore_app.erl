@@ -82,7 +82,7 @@ start(_Type, _Args) ->
 					ok;
 				{ok,_S} ->
 					error_logger:format("Local RPC address already taken ~p:~p~n",[butil:ip_to_list(IP),RpcPort]),
-					inet:stop()
+					init:stop()
 			end,
 			application:start(ranch),
 			{ok, _} = ranch:start_listener(bkdcore_in, 10,
