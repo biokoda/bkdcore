@@ -66,10 +66,27 @@ start(_Type, _Args) ->
 		undefined ->
 			ok;
 		{ok,RpcPort} ->
+			case node() of
+				'nonode@nohost' ->
+					IP = {127,0,0,1};
+				_ ->
+					case string:tokens(butil:tolist(node()),"@") of
+						[_,IP1] ->
+							IP = butil:ip_to_tuple(IP1);
+						_ ->
+							IP = {127,0,0,1}
+					end
+			end,
+			case gen_tcp:connect(IP,RpcPort,[],100) of
+				{error,_} ->
+					ok;
+				{ok,_S} ->
+					error_logger:format("Local RPC address already taken ~p:~p~n",[butil:ip_to_list(IP),RpcPort]),
+					inet:stop()
+			end,
 			application:start(ranch),
 			{ok, _} = ranch:start_listener(bkdcore_in, 10,
-		    ranch_tcp, [{port, RpcPort}, {max_connections, infinity}],
-		    bkdcore_rpc, [])
+		    ranch_tcp, [{port, RpcPort}, {max_connections, infinity}, {ip,IP}],bkdcore_rpc, [])
 	end,
 	% bkdcore:startup_node(),
 	{ok,SupPid}.
