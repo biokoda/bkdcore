@@ -1961,9 +1961,9 @@ sqlquote(X) when is_list(X) ->
 sqlquote(<<_/binary>> = X) ->
 	[$',sqlescape(X),$'];
 sqlquote(true) ->
-	<<"TRUE">>;
+	sqlquote(1);
 sqlquote(false) ->
-	<<"FALSE">>;
+	sqlquote(0);
 sqlquote(undefined) ->
 	<<"NULL">>;
 sqlquote(null) ->
