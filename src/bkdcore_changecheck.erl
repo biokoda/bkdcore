@@ -262,11 +262,13 @@ traverse_files(Dict,Path, [H|T],Op) ->
 											end;
 										true ->
 											ok
-									end;
+									end,
+									reload(Path,H,Op);
+								_ when FType == ".erl"; FType == ".hrl" ->
+									ok;
 								_ ->
-									ok
+									reload(Path,H,Op)
 							end;
-							% reload(Path,H,Op);
 						_ ->
 							case I#file_info.mtime of
 								PrevTime ->

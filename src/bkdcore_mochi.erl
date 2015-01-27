@@ -26,6 +26,7 @@ handle_cast({start_mochiweb,L},P) ->
 				[{Name,Val}]
 		end
 	end,
+	% lager:info("Starting mochiweb ~p",[L]),
 	[begin
 		[Port,Ssl,CaCert,Cert,Key] = butil:ds_vals([port,ssl,cacert,cert,key],Info,[8080,false,undefined,undefined,undefined]),
 		Start = [{port, Port}, {name,list_to_atom("mochi"++butil:tolist(Port))},{ssl,Ssl}, {loop,{?MODULE,http_req}},
