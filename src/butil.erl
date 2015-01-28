@@ -800,6 +800,7 @@ pgvar(R,N) ->
 			X
 	end.
 
+
 raw_path(#arg{} = Arg) ->
 	check_cachecall(?LINE),
 	case Arg#arg.req of
@@ -807,6 +808,13 @@ raw_path(#arg{} = Arg) ->
 			Path;
 		_ ->
 			undefined
+	end;
+raw_path(R) when element(1,R) == http_req ->
+	case cowboy_req:qs(R) of
+		<<>> ->
+			cowboy_req:path(R);
+		QS ->
+			iolist_to_binary([cowboy_req:path(R),"?",QS])
 	end;
 raw_path(R) ->
 	check_cachecall(?LINE),
