@@ -1461,7 +1461,7 @@ plistxml(Bin,Term,L) ->
 		<<"<",R/binary>> ->
 			case R of
 				<<"key>",ContentRem/binary>> ->
-					[Content,ValRem] = binary:split(ContentRem,<<"</key>">>),
+					[Content,ValRem] = split_first(ContentRem,<<"</key>">>),
 					case Term of
 						[] ->							
 							case plistxml(ValRem,Term,[]) of
@@ -1521,19 +1521,19 @@ plistxml(Bin,Term,L) ->
 							{NL++L,Rem}
 					end;
 				<<"integer>",ContentRem/binary>> ->
-					[Content,Next] = binary:split(ContentRem,<<"</integer>">>),
+					[Content,Next] = split_first(ContentRem,<<"</integer>">>),
 					{toint(Content),Next};
 				<<"string>",ContentRem/binary>> ->
-					[Content,Next] = binary:split(ContentRem,<<"</string>">>),
+					[Content,Next] = split_first(ContentRem,<<"</string>">>),
 					{Content,Next};
 				<<"date>",ContentRem/binary>> ->
-					[Content,Next] = binary:split(ContentRem,<<"</date>">>),
+					[Content,Next] = split_first(ContentRem,<<"</date>">>),
 					{Content,Next};
 				<<"data>",ContentRem/binary>> ->
-					[Content,Next] = binary:split(ContentRem,<<"</data>">>),
+					[Content,Next] = split_first(ContentRem,<<"</data>">>),
 					{base64:decode(Content),Next};
 				<<"real>",ContentRem/binary>> ->
-					[Content,Next] = binary:split(ContentRem,<<"</real>">>),
+					[Content,Next] = split_first(ContentRem,<<"</real>">>),
 					{tofloat(Content),Next};
 				<<"true/>",ContentRem/binary>> ->
 					{true,ContentRem};
@@ -1546,7 +1546,7 @@ plistxml(Bin,Term,L) ->
 				<<"/array>",ContentRem/binary>> ->
 					{L,ContentRem};
 				<<"plist",RX/binary>> ->
-					[_,ContentRem] = binary:split(RX,<<">">>),
+					[_,ContentRem] = split_first(RX,<<">">>),
 					case plistxml(ContentRem,Term,[]) of
 						{Val,Rem} ->
 							plistxml(Rem,Term,[{<<"plist">>,Val}|L]);
@@ -1554,10 +1554,10 @@ plistxml(Bin,Term,L) ->
 							[{<<"plist">>,Val}|L]
 					end;
 				<<"?",Rem/binary>> ->
-					[_,Next] = binary:split(Rem,<<"?>">>),
+					[_,Next] = split_first(Rem,<<"?>">>),
 					plistxml(Next,Term,L);
 				<<"!",Rem/binary>> ->
-					[_,Next] = binary:split(Rem,<<">">>),
+					[_,Next] = split_first(Rem,<<">">>),
 					plistxml(Next,Term,L)
 			end;
 		% <<X,R/binary>> when X == $\r; X == $\n; X == $\s; X == $\t ->
@@ -2182,13 +2182,13 @@ sqltypecheck({bigint,_Def},V) ->
 sqltypecheck({float,_Def},V) ->
 	tofloat(V);
 sqltypecheck({date,_Dev},V) ->
-	[Year,M,D] = binary:split(tobin(V),<<"-">>,[global]),
+	[Year,M,D] = split(tobin(V),<<"-">>),
 	{toint(Year),toint(M),toint(D)};
 sqltypecheck({time,_Dev},V) ->
-	[H,M,S] = binary:split(tobin(V),<<":">>,[global]),
+	[H,M,S] = split(tobin(V),<<":">>),
 	{toint(H),toint(M),toint(S)};
 sqltypecheck({datetime,_Dev},V) ->
-	[Date,Time] = binary:split(tobin(V),<<" ">>,[global]),
+	[Date,Time] = split(tobin(V),<<" ">>),
 	{sqltypecheck(date,Date),sqltypecheck(time,Time)};
 sqltypecheck({Name,_Max},V) when Name == url ->
 	url(V),
@@ -2353,6 +2353,40 @@ prop_to_query(Props) ->
               end, [], Props),
     string:join(Pairs, "&").
 
+% like binary:split, stops at first occurence. Much faster than binary:split
+split_first(B,Split) ->
+	split_first(0,B,Split).
+split_first(N,EntireBin, Split) ->
+	SizeSplit = byte_size(Split),
+	case EntireBin of
+		<<Left:N/binary,Split:SizeSplit/binary,Rem/binary>> ->
+			[Left,Rem];
+		<<Bin:N/binary>> ->
+			[Bin];
+		_ ->
+			split_first(N+1,EntireBin,Split)
+	end.
+
+% like binary:split with global. Much faster than binary:split
+split(B,Split) ->
+	split(0,0,B,Split).
+split(Skip,N,EntireBin, Split) ->
+	SizeSplit = byte_size(Split),
+	case EntireBin of
+		<<_:Skip/binary,Left:N/binary,Split:SizeSplit/binary,_/binary>> ->
+			case N of
+				0 ->
+					split(Skip+byte_size(Split),N,EntireBin,Split);
+				_ ->
+					[Left|split(Skip+N+byte_size(Split), 0, EntireBin,Split)]
+			end;
+		<<_:Skip/binary>> when N == 0 ->
+			[];
+		<<_:Skip/binary,Bin:N/binary>> ->
+			[Bin];
+		_ ->
+			split(Skip,N+1,EntireBin,Split)
+	end.
 
 % Shorten is for a short string representation of integers.
 % butil:shorten(1000) -> "qi"
@@ -3423,25 +3457,9 @@ url(B1) ->
 		B ->
 			Ssl = false
 	end,
-	Checkdomain = fun(D) ->
-					case binary:split(D,<<".">>,[global]) of
-						[_,_,_,_] ->
-							ok;
-						_X ->
-							% case inet:gethostbyname(util:tolist(D)) of
-							% 	{ok,_} ->
-							% 		ok;
-							% 	Err ->
-							% 		?PRT("Domain not reachable ~p", [D]),
-							% 		throw(Err)
-							% end
-							ok
-					end
-				end,
 	Domport = fun(DM) ->
-				case binary:split(DM,<<":">>) of
+				case split_first(DM,<<":">>) of
 					[Dom] ->
-						Checkdomain(Dom),
 						case Ssl of
 							true ->
 								[Dom,443];
@@ -3449,24 +3467,24 @@ url(B1) ->
 								[Dom,80]
 						end;
 					[Dom,Port] ->
-						Checkdomain(Dom),
 						[Dom,toint(Port)]
 				end
 			end,
 	Userpass = fun(DomainPort,DM) ->
-					case binary:split(DM,<<"@">>) of
+					case split_first(DM,<<"@">>) of
 						[_] ->
 							DomainPort(DM) ++ [undefined, undefined];
 						[Uspw,Rem] ->
-							DomainPort(Rem) ++ binary:split(Uspw,<<":">>)
+							DomainPort(Rem) ++ split_first(Uspw,<<":">>)
 					end
 			end,
-	case binary:split(B,<<"/">>) of
+	case split_first(B,<<"/">>) of
 		[Dom,Path] ->
 			list_to_tuple(Userpass(Domport,Dom) ++ [<<"/",Path/binary>>,Ssl]);
 		[Dom] ->
 			list_to_tuple(Userpass(Domport,Dom) ++ [<<"/">>,Ssl])
 	end.
+
 
 httphead_body({Host,_Port,Us,Pw,Path,_Ssl},Headers1,Method,Body) ->
 	case Method of
@@ -3832,7 +3850,7 @@ loop_chunked(N,Bin) ->
 parse_chunked_bin(Bin) ->
 	parse_chunked_bin(Bin,[]).
 parse_chunked_bin(Bin,Chunks) ->
-	case binary:split(Bin,<<"\r\n">>) of
+	case split_first(Bin,<<"\r\n">>) of
 		[Sizehex|[ChunkBody]] ->
 			Size = hexlist_to_integer(Sizehex),
 			case Size of
