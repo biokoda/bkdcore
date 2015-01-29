@@ -2744,9 +2744,20 @@ tolist(P) when is_atom(P) ->
 tolist(P) when is_integer(P) ->
 	integer_to_list(P);
 tolist(P) when is_float(P) ->
-	bmochinum:digits(P);
+	float_to_list(P,[{decimals,6},compact]);
 tolist(P) when is_list(P) ->
 	P.
+
+toio(<<_/binary>> = P) ->
+	P;
+toio([_|_] = P) ->
+	P;
+toio(P) when is_atom(P) ->
+	atom_to_binary(P,latin1);
+toio(P) when is_integer(P) ->
+	integer_to_binary(P);
+toio(P) when is_float(P) ->
+	float_to_binary(P,[{decimals,6},compact]).
 
 tobin(<<_/binary>> = P) ->
 	P;
@@ -2758,7 +2769,7 @@ tobin(P) when is_atom(P) ->
 tobin(P) when is_integer(P) ->
 	integer_to_binary(P);
 tobin(P) when is_float(P) ->
-	tobin(bmochinum:digits(P)).
+	float_to_binary(P,[{decimals,6},compact]).
 
 toatom(P) when is_binary(P) ->
 	binary_to_atom(P,latin1);
@@ -3530,7 +3541,7 @@ httphead_body({Host,_Port,Us,Pw,Path,_Ssl},Headers1,Method,Body) ->
 					Contentlen = <<"Content-length: ", (tobin(iolist_size(Body1)))/binary,"\r\n">>
 			end
 	end,
-	IOHeaders1 = [[tobin(K), ": ", tobin(V),<<"\r\n">>] || {K,V} <- Headers, K /= host],
+	IOHeaders1 = [[toio(K), ": ", toio(V),<<"\r\n">>] || {K,V} <- Headers, K /= host],
 	case lists:keyfind(host,1,Headers) of
 		{host,Actualhost} ->
 			IOHeaders = [[<<"Host: ">>,Actualhost,<<"\r\n">>]|IOHeaders1];
