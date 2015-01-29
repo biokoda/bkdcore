@@ -3615,8 +3615,7 @@ http_ex(Home,{Host,Port,Us,Pw,Path,Ssl},Headers,Method,Body1,ConnOpts1) ->
 													},
 	case Ssl of
 		true ->
-			case ssl:connect(tolist(Host),toint(Port),[{active,once},{keepalive,true},binary,
-																													 {packet,http_bin}|ConnOpts],P#httpr.contimeout) of
+			case ssl:connect(tolist(Host),toint(Port),[{active,once},{keepalive,true},binary,{packet,http_bin}|ConnOpts],P#httpr.contimeout) of
 				{ok,Sock} ->
 					case ssl:send(Sock,Httpheadbody) of
 						ok when P#httpr.callback, Method == post ->
@@ -3661,8 +3660,7 @@ http_ex(Home,{Host,Port,Us,Pw,Path,Ssl},Headers,Method,Body1,ConnOpts1) ->
 					exit(X)
 			end;
 		false ->
-			case gen_tcp:connect(tolist(Host),toint(Port),[{active,once},{keepalive,true},
-																															 {packet,http_bin},binary|ConnOpts],P#httpr.contimeout) of
+			case gen_tcp:connect(tolist(Host),toint(Port),[{active,once},{keepalive,true},{packet,http_bin},binary|ConnOpts],P#httpr.contimeout) of
 				{ok,Sock} ->
 					case gen_tcp:send(Sock,Httpheadbody) of
 						ok when P#httpr.callback, Method == post ->
