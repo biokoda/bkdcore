@@ -11,7 +11,7 @@
 -export([start/0,start/1, stop/1,stop/0, init/1, handle_call/3, 
  		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
 -export([start_link/4,init/4]).
-
+% -compile([export_all]).
 -define(CHUNKSIZE,16834).
 
 % RPC between bkdcore nodes
@@ -194,10 +194,10 @@ handle_info({tcp,S,<<Key:40/binary,Rem/binary>>},#dp{direction = receiver,isinit
 		<<>> ->
 			{noreply,P#dp{isinit = true}};
 		<<"tunnel,",Mod1/binary>> ->
-			[_From,Mod] = binary:split(Mod1,<<",">>),
+			[From,Mod] = butil:split_first(Mod1,<<",">>),
 			ok = gen_tcp:send(S,<<"ok">>),
-			lager:debug("Started tunnel from ~p",[_From]),
-			{noreply,P#dp{direction = tunnel, isinit = true, permanent = true, 
+			lager:debug("Started tunnel from ~p",[From]),
+			{noreply,P#dp{direction = tunnel, isinit = true, permanent = true, connected_to = From,
 						  tunnelmod = binary_to_existing_atom(Mod,latin1)}}
 	end;
 handle_info({tcp,_S,Bin},#dp{direction = tunnel} = P) ->
@@ -342,6 +342,7 @@ init([{From,FromRef},Node]) ->
 							erlang:send_after(5000,self(),timeout),
 							{ok, #dp{sock = S, direction = sender, connected_to = Node}};
 						_Err ->
+							lager:error("Unable to connect to node=~p, addr=~p, err=~p",[Node,{IP,Port},_Err]),
 							erlang:send_after(1000,self(),reconnect),
 							{ok,#dp{direction = sender, connected_to = Node}}
 					end;
