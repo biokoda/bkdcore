@@ -44,7 +44,7 @@ deser_prop(P) ->
 handle_cast({save_to_dict,{Path,Time}},P) ->
 	{noreply,P#cdat{dict = butil:ds_add(Path,Time,P#cdat.dict)}};
 handle_cast(_X, P) ->
-	lager:info("~p~n~p ~p", [P,self(), butil:ds_tolist(P#cdat.dict)]),
+	lager:info("~p~n~p ~p", [P#cdat.paths,self(), butil:ds_tolist(P#cdat.dict)]),
 	{noreply, P}.
 
 explodepath("apps") ->
@@ -264,7 +264,7 @@ traverse_files(Dict,Path, [H|T],Op) ->
 											ok
 									end,
 									reload(Path,H,Op);
-								_ when FType == ".erl"; FType == ".hrl" ->
+								_ when FType == "erl"; FType == "hrl" ->
 									ok;
 								_ ->
 									reload(Path,H,Op)
