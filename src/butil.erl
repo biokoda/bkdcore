@@ -2836,6 +2836,9 @@ int_to_ip(IP) when is_integer(IP) ->
 	<<A:8, B:8, C:8, D:8>> = <<IP:32>>,
 	lists:concat([A, ".", B, ".",C, ".", D]).
 
+ip_to_tuple(<<Int:32/big-unsigned>> = IP) ->
+	<<A:8,B:8,C:8,D:8>> = IP,
+	{A,B,C,D};
 ip_to_tuple(IP) when is_list(IP); is_binary(IP) ->
 	case string:tokens(tolist(IP),".") of
 		[_|_] = L ->
