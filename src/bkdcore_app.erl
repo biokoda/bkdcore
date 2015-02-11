@@ -84,7 +84,6 @@ start(_Type, _Args) ->
 					error_logger:format("Local RPC address already taken ~p:~p~n",[butil:to_ip(IP),RpcPort]),
 					init:stop()
 			end,
-			io:format("STARTING WITH ~p~n",[IP]),
 			application:start(ranch),
 			{ok, _} = ranch:start_listener(bkdcore_in, 10,
 		    ranch_tcp, [{port, RpcPort}, {max_connections, infinity}, {ip,IP}],bkdcore_rpc, [])
