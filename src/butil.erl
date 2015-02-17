@@ -240,7 +240,12 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 						Https when Https == "https" orelse Https == <<"https">> ->
 							Location = [$h,$t,$t,$p,$s,$:,$/,$/|A:get_header_value("host")] ++ R#pgr.content;
 						_ ->
-							Location = [$h,$t,$t,$p,$:,$/,$/|A:get_header_value("host")] ++ R#pgr.content
+							case A:get(scheme) of
+								http ->
+									Location = [$h,$t,$t,$p,$:,$/,$/|A:get_header_value("host")] ++ R#pgr.content;
+								https ->
+									Location = [$h,$t,$t,$p,$s,$:,$/,$/|A:get_header_value("host")] ++ R#pgr.content
+							end							
 					end
 			end,
 			% io:format("Calling flatten on ~p~n", [[{"Location",Location}|R#pgr.cookies]]),
