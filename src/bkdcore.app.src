@@ -1,6 +1,6 @@
 {application, bkdcore,
  [{description, "bkdcore"},
-  {vsn, "0.5"},
+  {vsn, "0.6"},
   {modules, [
             ]},
   {registered, [bkdcore_sup,bkdcore_rpc,bkdcore_mochi,bkdcore_task,bkdcore_geoip,bkdcore_cache,bkdcore_sharedstate,bkdcore_idgen]},
