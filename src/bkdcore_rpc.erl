@@ -8,7 +8,7 @@
 % API
 -export([call/2,cast/2,async_call/3,multicall/2,is_connected/1]).
 % gen_server
--export([start/0,start/1, stop/1,stop/0, init/1, handle_call/3, 
+-export([start/0,start/1,start/2, stop/1,stop/0, init/1, handle_call/3, 
  		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
 -export([start_link/4,init/4]).
 % -compile([export_all]).
@@ -86,7 +86,7 @@ cast(Node,Msg) ->
 
 start() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-start(Node) ->
+start(Node) when is_binary(Node) ->
 	Ref = make_ref(),
 	case gen_server:start(?MODULE, [{self(),Ref},Node], []) of
 		{ok,Pid} ->
@@ -103,6 +103,8 @@ start(Node) ->
 		E ->
 			E
 	end.
+start(Id,Info) ->
+	gen_server:start_link(?MODULE, [Id,Info], []).
 
 stop() ->
 	gen_server:call(?MODULE, stop).
@@ -133,6 +135,7 @@ getpid(Node) ->
 	Pid.
 
 -record(dp,{sock,sendproc,calln = 0,callsininterval = 0, callcount = 0,
+			respawn_timer = 0, iteration = 0,
 			permanent = false, direction,transport, tunnelstate,
 			isinit = false, connected_to,tunnelmod, reconnecter}).
 
@@ -189,11 +192,12 @@ handle_cast(_, P) ->
 
 handle_info({tcp,S,<<Key:40/binary,Rem/binary>>},#dp{direction = receiver,isinit = false} = P) ->
 	Key = bkdcore:rpccookie(),
-	inet:setopts(P#dp.sock,[{active, once}]),
 	case Rem of
 		<<>> ->
+			inet:setopts(P#dp.sock,[{active, once}]),
 			{noreply,P#dp{isinit = true}};
 		<<"tunnel,",Mod1/binary>> ->
+			inet:setopts(P#dp.sock,[{active, 32}]),
 			[From,Mod] = butil:split_first(Mod1,<<",">>),
 			ok = gen_tcp:send(S,<<"ok">>),
 			lager:debug("Started tunnel from ~p",[From]),
@@ -207,8 +211,33 @@ handle_info({tcp,_S,Bin},#dp{direction = tunnel} = P) ->
 		State ->
 			ok
 	end,
-	inet:setopts(P#dp.sock,[{active, once}]),
-	{noreply,P#dp{tunnelstate = State}};
+	{noreply,P#dp{tunnelstate = State, respawn_timer = P#dp.respawn_timer+1}};
+handle_info({tcp_passive, _Socket},P) ->
+	% lager:info("tcp_passive ~p",[{P#dp.connected_to,P#dp.iteration}]),
+	case P#dp.respawn_timer > 3000 of
+		true ->
+			handle_info(restart,P);
+		false ->
+			inet:setopts(P#dp.sock,[{active, 32}]),
+			{noreply,P}
+	end;
+handle_info(restart,P) ->
+	% lager:info("Restarting tunnel process ~p",[{P#dp.connected_to,P#dp.iteration}]),
+	NewId = {?MODULE,P#dp.connected_to,P#dp.iteration+1},
+	Spec = {NewId,
+		{?MODULE,start,[NewId,P]}, %mfa
+		transient,
+		100,
+		worker,
+		[?MODULE]
+	},
+	{ok,Pid} = supervisor:start_child(bkdcore_sup,Spec),
+	% Transfer ownership to new process
+	ok = gen_udp:controlling_process(P#dp.sock,Pid),
+	% Wake that process up
+	Pid ! {tcp_passive,P#dp.sock},
+	spawn(fun() -> timer:sleep(1000), supervisor:delete_child(bkdcore_sup,{?MODULE,P#dp.connected_to,P#dp.iteration}) end),
+	{stop,normal,P};
 handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 	case get(Id) of
 		undefined ->
@@ -279,6 +308,12 @@ handle_info({tcp_closed,_},#dp{direction = receiver} = P) ->
 	{stop,normal,P};
 handle_info({tcp_closed,_},P) ->
 	lager:debug("Connection closed type ~p",[P#dp.direction]),
+	case P#dp.direction of
+		tunnel ->
+			spawn(fun() -> timer:sleep(1000), supervisor:delete_child(bkdcore_sup,{?MODULE,P#dp.connected_to,P#dp.iteration}) end);
+		_ ->
+			ok
+	end,
 	{stop,normal,P};
 handle_info(timeout,P) ->
 	case P#dp.callsininterval of
@@ -330,6 +365,8 @@ init(Ref, Socket, Transport, _Opts) ->
 
 init([]) ->
 	{ok,#dp{direction = receiver}};
+init([{?MODULE,_ConnectedTo,Iteration},P]) ->
+	{ok,P#dp{iteration = Iteration, respawn_timer = 0}};
 init([{From,FromRef},Node]) ->
 	case distreg:reg({bkdcore,Node}) of
 		ok ->
