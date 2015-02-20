@@ -2508,6 +2508,16 @@ mapstore(Key,Val,[H|L],Map) ->
 mapstore(_,_,[],Map) ->
 	[Map].
 
+maplistsort(Key,L) ->
+	maplistsort(Key,L,asc).
+maplistsort(Key,L,asc) ->
+	Asc = fun(A,B) -> maps:get(Key,A) =< maps:get(Key,B) end,
+	lists:sort(Asc,L);
+maplistsort(Key,L,desc) ->
+	Desc = fun(A,B) -> maps:get(Key,A) >= maps:get(Key,B) end,
+	lists:sort(Desc,L).
+
+
 % Returns first result of Fun while traversing list, that is not undefined or false
 find(Fun,[H|T]) ->
 	case Fun(H) of
@@ -2841,7 +2851,7 @@ int_to_ip(IP) when is_integer(IP) ->
 	<<A:8, B:8, C:8, D:8>> = <<IP:32>>,
 	lists:concat([A, ".", B, ".",C, ".", D]).
 
-ip_to_tuple(<<Int:32/big-unsigned>> = IP) ->
+ip_to_tuple(<<_Int:32/big-unsigned>> = IP) ->
 	<<A:8,B:8,C:8,D:8>> = IP,
 	{A,B,C,D};
 ip_to_tuple(IP) when is_list(IP); is_binary(IP) ->
