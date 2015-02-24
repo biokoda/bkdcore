@@ -1710,7 +1710,7 @@ query_pair({A,Op,V,multiple}) ->
 	query_pair_multiple(V,Op,A,[],length(V)-1);
 query_pair({A,Op,V}) ->
 	case ok of
-		_ when V == null ->
+		_ when V == null; V == undefined ->
 			case Op of
 				_ when Op == "<>" orelse Op == "!="  ->
 					[sqlescape(butil:tolist(A))," IS NOT NULL "];
