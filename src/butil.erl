@@ -277,7 +277,11 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 					A:respond({302,[{"Location",ErrPath}], <<>>})
 			end;
 		_ when is_record(A,arg) ->
-			[{status, 400},{content, "text/plain",<<"Internal Server Error">>}];
+			A:respond({500, [{"Content-Type", "text/plain"}],
+                         <<"Internal Server Error">>});
+		{error,undefined,undefined,undefined} ->
+			A:respond({500, [{"Content-Type", "text/plain"}],
+                         <<"Internal Server Error">>});
 		X ->
 			A:respond({400,[],X#pgr.content})
 	end.
