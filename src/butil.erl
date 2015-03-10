@@ -1723,7 +1723,10 @@ query_pair({A,Op,V}) ->
 			end;	
 		_ ->
 			[sqlescape(butil:tolist(A))," ",Op," ",sqlquote(V)," "]
-	end.
+	end;
+query_pair(A) when is_binary(A)->
+    butil:tolist(A).
+
 query_pair_multiple([],_Op,_A,Output,_Len)->
 	Output;
 query_pair_multiple([H|T],Op,A,Output,Len)->
@@ -3907,6 +3910,5 @@ is_proplist(List) ->
                      (_)      -> false
                   end,
                   List).
-
 
 
