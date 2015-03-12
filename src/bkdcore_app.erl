@@ -85,8 +85,7 @@ start(_Type, _Args) ->
 					init:stop()
 			end,
 			application:start(ranch),
-			{ok, _} = ranch:start_listener(bkdcore_in, 10,
-		    ranch_tcp, [{port, RpcPort}, {max_connections, infinity}, {ip,IP}],bkdcore_rpc, [])
+			{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp, [{port, RpcPort}, {max_connections, infinity}, {ip,IP}],bkdcore_rpc, [])
 	end,
 	% bkdcore:startup_node(),
 	{ok,SupPid}.

@@ -277,7 +277,11 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 					A:respond({302,[{"Location",ErrPath}], <<>>})
 			end;
 		_ when is_record(A,arg) ->
-			[{status, 400},{content, "text/plain",<<"Internal Server Error">>}];
+			A:respond({500, [{"Content-Type", "text/plain"}],
+                         <<"Internal Server Error">>});
+		{error,undefined,undefined,undefined} ->
+			A:respond({500, [{"Content-Type", "text/plain"}],
+                         <<"Internal Server Error">>});
 		X ->
 			A:respond({400,[],X#pgr.content})
 	end.
@@ -1710,7 +1714,7 @@ query_pair({A,Op,V,multiple}) ->
 	query_pair_multiple(V,Op,A,[],length(V)-1);
 query_pair({A,Op,V}) ->
 	case ok of
-		_ when V == null ->
+		_ when V == null; V == undefined ->
 			case Op of
 				_ when Op == "<>" orelse Op == "!="  ->
 					[sqlescape(butil:tolist(A))," IS NOT NULL "];
@@ -1719,7 +1723,10 @@ query_pair({A,Op,V}) ->
 			end;	
 		_ ->
 			[sqlescape(butil:tolist(A))," ",Op," ",sqlquote(V)," "]
-	end.
+	end;
+query_pair(A) when is_binary(A)->
+    butil:tolist(A).
+
 query_pair_multiple([],_Op,_A,Output,_Len)->
 	Output;
 query_pair_multiple([H|T],Op,A,Output,Len)->
@@ -2508,6 +2515,16 @@ mapstore(Key,Val,[H|L],Map) ->
 mapstore(_,_,[],Map) ->
 	[Map].
 
+maplistsort(Key,L) ->
+	maplistsort(Key,L,asc).
+maplistsort(Key,L,asc) ->
+	Asc = fun(A,B) -> maps:get(Key,A) =< maps:get(Key,B) end,
+	lists:sort(Asc,L);
+maplistsort(Key,L,desc) ->
+	Desc = fun(A,B) -> maps:get(Key,A) >= maps:get(Key,B) end,
+	lists:sort(Desc,L).
+
+
 % Returns first result of Fun while traversing list, that is not undefined or false
 find(Fun,[H|T]) ->
 	case Fun(H) of
@@ -2841,7 +2858,7 @@ int_to_ip(IP) when is_integer(IP) ->
 	<<A:8, B:8, C:8, D:8>> = <<IP:32>>,
 	lists:concat([A, ".", B, ".",C, ".", D]).
 
-ip_to_tuple(<<Int:32/big-unsigned>> = IP) ->
+ip_to_tuple(<<_Int:32/big-unsigned>> = IP) ->
 	<<A:8,B:8,C:8,D:8>> = IP,
 	{A,B,C,D};
 ip_to_tuple(IP) when is_list(IP); is_binary(IP) ->
@@ -3893,6 +3910,5 @@ is_proplist(List) ->
                      (_)      -> false
                   end,
                   List).
-
 
 
