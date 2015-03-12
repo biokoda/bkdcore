@@ -373,7 +373,8 @@ init([{From,FromRef},Node]) ->
 			case bkdcore:node_address(Node) of
 				{IP,Port} ->
 					case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,once},
-													{send_timeout,2000},{nodelay,true}],2000) of
+                                                  {send_timeout,2000},{nodelay,true},
+                                                  {ip,butil:ip_to_tuple(element(1,bkdcore:node_address()))}],2000) of
 						{ok,S} ->
 							ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
 							erlang:send_after(5000,self(),timeout),
