@@ -72,7 +72,17 @@ start(_Type, _Args) ->
 				_ ->
 					case string:tokens(butil:tolist(node()),"@") of
 						[_,IP1] ->
-							IP = butil:ip_to_tuple(IP1);
+							case string:tokens(IP1,".") of
+								[_,_,_,_] ->
+									case catch butil:ip_to_tuple(IP1) of
+										{_,_,_,_} = IP ->
+											ok;
+										_ ->
+											IP = IP1
+									end;
+								_ ->
+									IP = IP1
+							end;
 						_ ->
 							IP = {127,0,0,1}
 					end
@@ -85,7 +95,13 @@ start(_Type, _Args) ->
 					init:stop()
 			end,
 			application:start(ranch),
-			{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp, [{port, RpcPort}, {max_connections, infinity}, {ip,IP}],bkdcore_rpc, [])
+			case is_tuple(IP) of
+				true ->
+					Limit = [{ip,IP}];
+				false ->
+					Limit = []
+			end,
+			{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp, [{port, RpcPort}, {max_connections, infinity}|Limit],bkdcore_rpc, [])
 	end,
 	% bkdcore:startup_node(),
 	{ok,SupPid}.
