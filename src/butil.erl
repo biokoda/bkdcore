@@ -228,28 +228,8 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 			end,
 			[R#pgr.cookies,{status, R#pgr.status},{header, [$L,$o,$c,$a,$t,$i,$o,$n,$:,$\s|Location]}];
 		R when R#pgr.status < 400 ->
-			case R#pgr.content of
-				"rtsp" ++ _ ->
-					Location = R#pgr.content;
-				[$h,$t|_] ->
-					Location = R#pgr.content;
-				"market://" ++ _ ->
-					Location = R#pgr.content;
-				_ ->
-					case A:get_header_value("x-forwarded-proto") of
-						Https when Https == "https" orelse Https == <<"https">> ->
-							Location = [$h,$t,$t,$p,$s,$:,$/,$/|A:get_header_value("host")] ++ R#pgr.content;
-						_ ->
-							case A:get(scheme) of
-								http ->
-									Location = [$h,$t,$t,$p,$:,$/,$/|A:get_header_value("host")] ++ R#pgr.content;
-								https ->
-									Location = [$h,$t,$t,$p,$s,$:,$/,$/|A:get_header_value("host")] ++ R#pgr.content
-							end							
-					end
-			end,
 			% io:format("Calling flatten on ~p~n", [[{"Location",Location}|R#pgr.cookies]]),
-			A:respond({R#pgr.status,lists:flatten([{"Location",Location},R#pgr.cookies]),<<>>});
+			A:respond({R#pgr.status,lists:flatten([{"Location",R#pgr.content},R#pgr.cookies]),<<>>});
 		R when R#pgr.status > 400, is_record(A,arg) ->
 			[{status, R#pgr.status},{content, "text/html", R#pgr.content}];
 		R when R#pgr.status > 400 ->
