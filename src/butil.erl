@@ -2827,6 +2827,8 @@ replicate(N,X,L) ->
 		
 to_ip({A,B,C,D}) ->
 	lists:concat([A,".",B,".",C,".",D]);
+to_ip({A,B,C,D,E,F,G,H}) ->
+	lists:concat([A,".",B,".",C,".",D,".",E,".",F,".",G,".",H]);
 to_ip(L) when is_integer(L) ->
 	int_to_ip(L);
 to_ip(L) ->
@@ -2839,8 +2841,12 @@ int_to_ip(IP) when is_integer(IP) ->
 	lists:concat([A, ".", B, ".",C, ".", D]).
 
 ip_to_tuple(<<_Int:32/big-unsigned>> = IP) ->
-	<<A:8,B:8,C:8,D:8>> = IP,
+	<<A:8/unsigned,B:8/unsigned,C:8/unsigned,D:8/unsigned>> = IP,
 	{A,B,C,D};
+ip_to_tuple(<<_Int:16/binary>> = IP) ->
+	<<A:16/unsigned,B:16/unsigned,C:16/unsigned,D:16/unsigned,
+	E:16/unsigned,F:16/unsigned,G:16/unsigned,H:16/unsigned>> = IP,
+	{A,B,C,D,E,F,G,H};
 ip_to_tuple(IP) when is_list(IP); is_binary(IP) ->
 	case string:tokens(tolist(IP),".") of
 		[_|_] = L ->
