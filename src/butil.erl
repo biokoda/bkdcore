@@ -2327,6 +2327,16 @@ encode_percent([C|Rest],T,Acc) when C > 255 ->
 	<<Hi1:4, Lo1:4,Hi2:4, Lo2:4>> = <<C:16>>,
 	encode_percent(Rest, T, [hexdigit(Lo2), hexdigit(Hi2), ?PERCENT,hexdigit(Lo1), hexdigit(Hi1), ?PERCENT | Acc]).
 
+encode_whitespace_percent(Str)->
+	encode_whitespace_percent(Str,[]).
+encode_whitespace_percent([H|T],Acc) when H =:= 32 ->
+	<<Hi:4, Lo:4>> = <<H>>,
+	encode_whitespace_percent(T, [hexdigit(Lo), hexdigit(Hi), ?PERCENT | Acc]);
+encode_whitespace_percent([H|T],Acc) ->
+	encode_whitespace_percent(T, [H | Acc]);
+encode_whitespace_percent([],Acc) ->
+	lists:reverse(Acc).
+
 prop_to_query({A,B}) ->
 	prop_to_query([{A,B}]);
 prop_to_query(Props) ->
