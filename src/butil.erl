@@ -11,9 +11,9 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
+%
 % 						WEB FUNCTIONS
-% 
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_session(Seed) ->
 	PID = os:getpid(),
@@ -60,7 +60,7 @@ is_fbsession(ApiKey,Secret,Cookies) ->
 		_X ->
 			false
 	end.
-	
+
 
 fbcookies(Api,Hash,L,[{K,V}|T]) ->
 	ApiSize = byte_size(Api),
@@ -84,7 +84,7 @@ fbcookies(Api,Hash,L,[H|T]) ->
 	end;
 fbcookies(_,Hash, L,[]) ->
 	{lists:keysort(1,L),Hash}.
-	
+
 splitat(Char,Left,<<Char,Right/binary>>) ->
 	{Left,Right};
 splitat(Char,Left,<<F,R/binary>>) ->
@@ -107,7 +107,7 @@ splitat(_,Left,<<>>) ->
 								end;
 							EF ->
 								EF(A,erlang:get_stacktrace(), X)
-								
+
 						end).
 
 funout(Module,Name) ->
@@ -146,7 +146,7 @@ out(A,Fun) ->
 					out1(A,undefined,mochi,?ERRACTION(X))
 			end
 	end.
-out1(A,X,Srv,undefined) ->			
+out1(A,X,Srv,undefined) ->
 	case X of
 		#pgr{} = _ ->
 			validate(A,X);
@@ -241,7 +241,7 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 		{error, Type, Msg, Param} when is_record(A,arg), ErrPath /= undefined ->
 			case ErrCookie of
 				true ->
-					[set_error_cookie(A, #pgerr{docid = tobin(Type), msg = Msg, param = Param}), 
+					[set_error_cookie(A, #pgerr{docid = tobin(Type), msg = Msg, param = Param}),
 			 			{redirect_local, {any_path, ErrPath}}];
 				false ->
 					{redirect_local,{any_path,ErrPath}}
@@ -308,11 +308,11 @@ safecall(M,F) when is_function(M) ->
 json_resp(V) ->
 	json_resp(V,[]).
 json_resp(#pgr{content = <<_/binary>>} = V,Cookies) ->
-	V#pgr{mime = "application/json", 
+	V#pgr{mime = "application/json",
 		 cookies = Cookies,
 		 headers = [{"Cache-control","no-cache"},{"Pragma", "no-cache"}]};
 json_resp({array,[]},Cookies)->
-	#pgr{mime = "application/json", 
+	#pgr{mime = "application/json",
 		 cookies = Cookies,
 		 headers = [{"Cache-control","no-cache"},{"Pragma", "no-cache"}],
 		 content = bjson:encode({array,[]})};
@@ -321,7 +321,7 @@ json_resp({K,V},Cookies) when is_list(V) ->
 json_resp({K,V},Cookies) ->
 	json_resp([{K,V}],Cookies);
 json_resp(C,Cookies) ->
-	#pgr{mime = "application/json", 
+	#pgr{mime = "application/json",
 		 cookies = Cookies,
 		 headers = [{"Cache-control","no-cache"},{"Pragma", "no-cache"}],
 		 content = bjson:encode(C)}.
@@ -382,8 +382,8 @@ try_session(R) ->
 					S
 			end
 	end.
-		
-	
+
+
 kill_session_cookie(A) ->
 	kill_cookie(A,"session").
 session_cookie(A, Us, Key) ->
@@ -411,7 +411,7 @@ get_msg_cookie(A, Name, RecIn) ->
 					Res
 			end
 	end.
-	
+
 set_error_cookie(A, Rec) ->
 	set_cookie(A, "error", dec2hex(mongodb:encoderec(Rec)), 60).
 get_error_cookie(ErrRec, A) ->
@@ -443,7 +443,7 @@ set_cookie(#arg{} = A,Name,Val,SecsValid, Path) ->
 	yaws_api:setcookie(Name, Val, Path, rfctime(sec() + SecsValid),
 								cookie_domain((A#arg.headers)#headers.host));
 set_cookie(R,N,V,Secs,Path) ->
-	mochiweb_cookies:cookie(N,V,[{path, Path},{max_age,Secs},{domain,cookie_domain(R:get_header_value("host"))}]).				
+	mochiweb_cookies:cookie(N,V,[{path, Path},{max_age,Secs},{domain,cookie_domain(R:get_header_value("host"))}]).
 set_cookie(#arg{} = A,Name,Val,SecsValid) ->
 	yaws_api:setcookie(Name, Val,	"/", rfctime(sec() + SecsValid),
 								cookie_domain((A#arg.headers)#headers.host));
@@ -451,9 +451,9 @@ set_cookie(R,N,V,Secs) ->
 	mochiweb_cookies:cookie(N,V,[{path, "/"},{max_age,Secs},{domain,cookie_domain(R:get_header_value("host"))}]).
 
 add_params_mochiweb_request(Items)->
-	erlang:put(mochiweb_request_qs, Items).			
+	erlang:put(mochiweb_request_qs, Items).
 remove_params_mochiweb_request(Items)->
-	erlang:put(mochiweb_request_qs, lists:filter(fun(X) -> lists:member(element(1,X),Items) /= true end, erlang:get(mochiweb_request_qs))).	
+	erlang:put(mochiweb_request_qs, lists:filter(fun(X) -> lists:member(element(1,X),Items) /= true end, erlang:get(mochiweb_request_qs))).
 
 form_validation(L) ->
 	form_validation([],L).
@@ -481,7 +481,7 @@ form_validation(E, [{{email,TypeName}, [_|_] = N}|T]) ->
 			form_validation([TypeName|E], T)
 	end;
 form_validation(E, [{Name, [_|_] = N}|T]) when Name == name; Name == last_name; Name == first_name ->
-	F = fun() ->		
+	F = fun() ->
 			case length(N) of
 				X when X > 0, X < 31 ->
 					true = valid_name(decode_percent(N))
@@ -499,7 +499,7 @@ form_validation(E, [{Name, [_|_] = N}|T]) when Name == name; Name == last_name; 
 		_X ->
 			form_validation([Name|E],T)
 	end;
-	
+
 form_validation(E, [{Name, [_|_] = N}|T]) when Name == post_number ->
 	F= fun() ->
 			case erlang:length(N) of
@@ -513,8 +513,8 @@ form_validation(E, [{Name, [_|_] = N}|T]) when Name == post_number ->
 			form_validation(E,T);
 		_X ->
 			form_validation([Name|E],T)
-	end;	
-	
+	end;
+
 form_validation(E,[{phone,N}|T]) ->
 	form_validation(E,[{gsm,N}|T]);
 form_validation(E, [{gsm, N}|T]) when is_list(N) ->
@@ -531,15 +531,15 @@ form_validation(E, [{gsm, N}|T]) when is_list(N) ->
 		_ ->
 			form_validation([gsm|E], T)
 	end;
-form_validation(E, [{Name, N}|T]) when Name == client_addr; Name == challenge; Name == response; Name == privatekey  ->	
+form_validation(E, [{Name, N}|T]) when Name == client_addr; Name == challenge; Name == response; Name == privatekey  ->
 	{value, {_, IP}, LR} = lists:keytake(client_addr, 1, [{Name, N}|T]),
 	{value, {_, Challenge}, LR1} = lists:keytake(challenge, 1, LR),
 	{value, {_, Response}, LR2} = lists:keytake(response, 1, LR1),
 	{value, {_, Privkey}, LRem} = lists:keytake(privatekey, 1, LR2),
-	
-	case http("http://www.google.com/recaptcha/api/verify", 
+
+	case http("http://www.google.com/recaptcha/api/verify",
 						[{"User-Agent", "reCAPTCHA/PHP"},
-						 {"Content-type", "application/x-www-form-urlencoded"}], 
+						 {"Content-type", "application/x-www-form-urlencoded"}],
 						post, "privatekey=" ++ tolist(Privkey) ++ "&" ++
 							  "remoteip=" ++ to_ip(IP) ++ "&challenge=" ++ tolist(Challenge) ++
 							  "&response=" ++ tolist(Response),
@@ -559,12 +559,12 @@ form_validation(E, [{Name, N}|T]) when Name == client_addr; Name == challenge; N
 			form_validation([captcha|E], LRem)
 	end;
 form_validation(E,[{Key,_Val}|T]) ->
-	form_validation([Key|E], T); 
+	form_validation([Key|E], T);
 form_validation([],[]) ->
 	ok;
 form_validation(E, []) ->
 	throw({form_validation, E}).
-	
+
 validate_email(N) ->
 	[Before,After] = string:tokens(N,"@"),
 	LB = length(Before),
@@ -583,8 +583,8 @@ validate_email(N) ->
 	[_,_|_] = string:tokens(After, "."),
 	ok.
 
-valid_name([C|T]) when C < 128 andalso C >= $a, C =< $z; 
-									   C >= $A, C =< $Z; 
+valid_name([C|T]) when C < 128 andalso C >= $a, C =< $z;
+									   C >= $A, C =< $Z;
 									   C >= $0, C =< $9;
 									   C == $.; C == $'; C == $-; C == $_; C == $\s ->
 	valid_name(T);
@@ -594,21 +594,21 @@ valid_name([]) ->
 	true;
 valid_name(_) ->
 	false.
-	
-	
+
+
 valid_integer(Str)->
 	case catch toint(Str) of
 		Int when is_integer(Int) ->
 			true;
 		_ ->
 			false
-	end.	
-	
+	end.
+
 
 filter_name(L) ->
 	filter_name(tolist(L),[]).
-filter_name([C|T],L) when C < 128 andalso C >= $a, C =< $z; 
-									   C >= $A, C =< $Z; 
+filter_name([C|T],L) when C < 128 andalso C >= $a, C =< $z;
+									   C >= $A, C =< $Z;
 									   C >= $0, C =< $9;
 									   C == $.; C == $'; C == $-; C == $_; C == $\s ->
 	filter_name(T,[C|L]);
@@ -619,8 +619,8 @@ filter_name([_|T],L) ->
 filter_name([],L) ->
 	lists:reverse(L).
 
-valid_email_local([C|T]) when C < 128 andalso C >= $a, C =< $z; 
-										C >= $A, C =< $Z; 
+valid_email_local([C|T]) when C < 128 andalso C >= $a, C =< $z;
+										C >= $A, C =< $Z;
 										C >= $0, C =< $9 ->
 	valid_email_local(T);
 valid_email_local([$.,$.|_]) ->
@@ -707,11 +707,11 @@ peer_ip(#arg{} = A) ->
 			IP;
 		_ ->
 			"127.0.0.1"
-	end;		
+	end;
 peer_ip(R) ->
 	check_cachecall(?LINE),
 	R:get(peer).
-	
+
 qvar([_|_] = Name,A) ->
 	qvar(A,Name);
 qvar(#arg{} = Arg,Name) ->
@@ -755,7 +755,7 @@ pgvar([_|_] = Name,A) ->
 pgvar(#arg{} = Arg,Name) ->
 	check_cachecall(?LINE),
 	case qvar(Arg,Name) of
-		"" ->			
+		"" ->
 			case yaws_api:getvar(Arg,Name) of
 				{ok, Var} ->
 					decode_percent(Var);
@@ -772,7 +772,7 @@ pgvar(R,N) ->
 			case R:get(method) of
 				'POST' ->
 					case R:get_primary_header_value("content-type") of
-		            	"application/x-www-form-urlencoded" ->	
+		            	"application/x-www-form-urlencoded" ->
 							case proplists:get_value(N,R:parse_post()) of
 								undefined ->
 									"";
@@ -830,7 +830,7 @@ toipv4("::ffff:"++IP) ->
 	IP;
 toipv4(X) ->
 	X.
-	
+
 remove_trail_slash(L) ->
 	case lists:reverse(L) of
 		"/" ++ R ->
@@ -935,7 +935,7 @@ safesend(_,_) ->
 set_permission(Path) ->
 	case prim_file:read_file_info(Path) of
 		{ok, I} ->
-			prim_file:write_file_info(Path, I#file_info{mode = 8#00400 + 8#00200 + 8#00100 + 8#00040 + 8#00020 + 
+			prim_file:write_file_info(Path, I#file_info{mode = 8#00400 + 8#00200 + 8#00100 + 8#00040 + 8#00020 +
 														  8#00010 + 8#00004 + 8#00002 + 8#00001 + 16#800 + 16#400});
 		_ ->
 			true
@@ -958,7 +958,7 @@ filetype(Filename) ->
 		_ ->
 			whatever
 	end.
-	
+
 file_age(Path) when is_list(Path) ->
 	{ok,I} = prim_file:read_file_info(Path),
 	file_age(I);
@@ -1037,7 +1037,7 @@ move_file(From,To) ->
 	case filelib:file_size(From) of
 		0 ->
 			ok;
-		_ ->			
+		_ ->
 			case file:rename(From,To) of
 				ok ->
 					ok;
@@ -1055,7 +1055,7 @@ is_app_running(Name) ->
 	lists:keymember(Name,1,application:which_applications()).
 wait_for_app(Name) ->
 	case is_app_running(Name) of
-		true ->			
+		true ->
 			ok;
 		false ->
 			timer:sleep(100),
@@ -1065,9 +1065,9 @@ reloadmod(Module) ->
 	code:purge(Module),
 	code:load_file(Module).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
+%
 % 						TIME FUNCTIONS
-% 
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % rfc3339
@@ -1148,7 +1148,7 @@ utctime(LocalTime) ->
 	end.
 
 utcepoch() ->
-	utcepoch(utctime()). 
+	utcepoch(utctime()).
 utcepoch(UtcTime) ->
 	calendar:datetime_to_gregorian_seconds(UtcTime) - 62167219200. % - 719528 * 24 * 60 * 60.
 
@@ -1164,7 +1164,7 @@ epochsec({{_,_,_},{_,_,_}} = Loctime) ->
 	calendar:datetime_to_gregorian_seconds(Loctime) - 719528 * 24 * 60 * 60.
 datetime_to_now({{_,_,_},{_,_,_}} = Loctime) ->
 	datetime_to_now(epochsec(Loctime));
-datetime_to_now(Secs) when is_integer(Secs) ->	
+datetime_to_now(Secs) when is_integer(Secs) ->
 	% Secs = epochsec(Loctime),
 	{Secs div 1000000, Secs rem 1000000,0}.
 
@@ -1198,7 +1198,7 @@ time_to_bstring({Hour, Min, Sec}, Delim) when is_binary(Delim) ->
 	MinBin = list_to_binary(string:right(integer_to_list(Min), 2, $0)),
 	SecBin = list_to_binary(string:right(integer_to_list(Sec), 2, $0)),
 	<<HourBin/binary, Delim/binary, MinBin/binary, Delim/binary, SecBin/binary>>.
-	
+
 timestr_to_loctime(Date) when is_binary(Date) ->
 	timestr_to_loctime(binary_to_list(Date));
 timestr_to_loctime(Date) ->
@@ -1232,12 +1232,12 @@ sec_to_timestr(Sec,Delim) ->
 	Min = Sec div 60,
 	Hr = Min div 60,
 	string:right(tolist(Hr),2,$0)++D++string:right(tolist(Min),2,$0)++D++string:right(tolist(S),2,$0).
-	
-	
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
+%
 % 						XML, records and JSON
-% 
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Convert erlmongo record into a simplexml format.
@@ -1329,7 +1329,7 @@ capitalize_proplist_for_json([],Acc)->
  capitalize_proplist_for_json([Head|Tail],Acc)->
  	FixedHead = [{butil:tobin(capitalize(tolist(element(1,H)))),element(2,H)}||H<-Head],
  	capitalize_proplist_for_json(Tail,[FixedHead|Acc]).
- 
+
 % % convert prop list to record
 prop2rec(Prop,RecName) ->
 	prop2rec(Prop,RecName,get({recdef,RecName}),get({recinfo,RecName})).
@@ -1371,8 +1371,8 @@ rectypeinfo(Rec) ->
 			get({rectype, element(1,Rec)});
 		_ when is_atom(Rec) ->
 			get({rectype, Rec})
-	end.	
-	
+	end.
+
 % Simplexml to xml list.
 toxml(T) when is_tuple(T) ->
 	toxml([T]);
@@ -1391,7 +1391,7 @@ simplexml(V) when is_tuple(V) ->
 	simplexml([V]);
 simplexml(V) ->
 	simplexml(<<"<?xml version=\"1.0\" encoding=\"utf-8\"?>">>,V).
-		
+
 simplexml1(V) when is_tuple(V) ->
 	simplexml1([V]);
 simplexml1(V) ->
@@ -1426,7 +1426,7 @@ simplexml(X,B) when is_integer(B); is_atom(B); is_float(B) ->
 simplexml(X,[_|_] = L) ->
 	simplexml(X,[L]);
 simplexml(B,[]) ->
-	B. 
+	B.
 
 prop_to_attr(Bin,{K,V}) ->
 	prop_to_attr(Bin,[{K,V}]);
@@ -1436,11 +1436,11 @@ prop_to_attr(Bin,[]) ->
 	Bin.
 
 
-% 
+%
 % 		Parsing OS X plist xmls. Optimized as much as I know how.
-% 		Optional second parameter, list of binaries of key names that should be ignored ([<<"Tracks">>,<<"Playlist Items">>] 
+% 		Optional second parameter, list of binaries of key names that should be ignored ([<<"Tracks">>,<<"Playlist Items">>]
 % 				speeds things up	noticeably).
-% 
+%
 plistxml(B) ->
 	plistxml(B,[],[]).
 plistxml(B,Terms) ->
@@ -1452,7 +1452,7 @@ plistxml(Bin,Term,L) ->
 				<<"key>",ContentRem/binary>> ->
 					[Content,ValRem] = split_first(ContentRem,<<"</key>">>),
 					case Term of
-						[] ->							
+						[] ->
 							case plistxml(ValRem,Term,[]) of
 								{Val,Rem} ->
 									plistxml(Rem,Term,[{Content,Val}|L]);
@@ -1617,7 +1617,7 @@ parsexml(InputXml,Opt) ->
 	F = fun(B) ->
 			{Xml,_} = xmerl_scan:string(B, [{space,normalize},{encoding,"utf-8"},{validation,off}|Opt]),
 			strip_whitespace(xmerl_lib:simplify_element(Xml))
-		end,	
+		end,
 	try F(InputXml) of
 		Res ->
 			Res
@@ -1635,9 +1635,9 @@ strip_whitespace({El,Attr,Children}) ->
   end,Children),
   Ch = lists:map(fun(X) -> strip_whitespace(X) end,NChild),
   {El,Attr,Ch};
-strip_whitespace(String) -> 
+strip_whitespace(String) ->
 	String.
-	
+
 
 parseform(Bin) ->
 	parseform(<<>>,<<>>,Bin,[]).
@@ -1653,7 +1653,7 @@ parseform(<<>>,<<>>,<<>>,L) ->
 	L;
 parseform(K,V,<<>>,L) ->
 	parseform(K,V,<<"&">>,L).
-	
+
 
 get_os() ->
 	case string:tokens(erlang:system_info(system_architecture),"-") of
@@ -1669,9 +1669,9 @@ get_os() ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
+%
 % 						SQL HELPER FUNCTIONS
-% 
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Example: butil:sql_select(t_session,[{id,Id},{skey,Key}])
 sql_select(T,Cond) when is_tuple(T) ->
@@ -1700,7 +1700,7 @@ query_pair({A,Op,V}) ->
 					[sqlescape(butil:tolist(A))," IS NOT NULL "];
 				_ ->
 					[sqlescape(butil:tolist(A))," IS NULL "]
-			end;	
+			end;
 		_ ->
 			[sqlescape(butil:tolist(A))," ",Op," ",sqlquote(V)," "]
 	end;
@@ -1759,7 +1759,7 @@ insert_pairs([Vp|T],Cols,Vals) ->
 	case insert_pair(Vp) of
 		{}->
 			insert_pairs(T,Cols,Vals);
-		{Cv,Dv} -> 
+		{Cv,Dv} ->
 			case Cols of
 				"" ->
 					AddVal = Dv,
@@ -1767,7 +1767,7 @@ insert_pairs([Vp|T],Cols,Vals) ->
 				_ ->
 					AddVal = [Vals,",", Dv],
 					AddCol = [Cols, ",", Cv]
-			end,	
+			end,
 			insert_pairs(T,AddCol,AddVal)
 	end.
 
@@ -1801,7 +1801,7 @@ sql_createtable_cmd_body(Rec,Constraints) ->
 	end,
 	{Str1,_} = lists:foldl(F,{[],2},L),
 	[lists:reverse(iolist_join(Str1,$,)),Cons].
-% If only record parameter: sql_udpate(#ad{id = 1, name = "abc"}) 
+% If only record parameter: sql_udpate(#ad{id = 1, name = "abc"})
 %  it presumes first element in record is id and it updates on that.
 sql_update(Rec) ->
 	sql_update_on(2,Rec).
@@ -1828,7 +1828,7 @@ sql_update_on_cmd(Ind,Rec) ->
 				sqlquote(sqltypecheck(element(Ind,RecType),element(Ind,Rec)))].
 
 
-% Insert on record. 
+% Insert on record.
 %  Requires that butil:recinfo(#ad{},?ADTYP,record_info(fields,ad)),
 %  has been called beforehand (in ?SETUP)
 sql_insert(Rec) ->
@@ -1854,7 +1854,7 @@ sql_insert_cmd1(Insert,Name,Rec) ->
 	RecType = rectypeinfo(Rec),
 	RecDef = recdef(Rec),
 	{Names,Vals} = sqlnames(L,Rec,RecDef,RecType,2,[],[]),
-	[Insert, tobin(Name),<<" (">>,Names,<<")">>,<<" VALUES (">>,iolist_join(sparsemap(fun sqlquote/1,Vals),<<",">>),<<")">>].	
+	[Insert, tobin(Name),<<" (">>,Names,<<")">>,<<" VALUES (">>,iolist_join(sparsemap(fun sqlquote/1,Vals),<<",">>),<<")">>].
 
 % Example:
 %  butil:sql_insert("INSERT INTO campaigns (name)", [Name]).
@@ -1890,7 +1890,7 @@ sql_toprop(#result_packet{field_list = FL, rows = RL}) ->
 				{_,Obj} ->
 					lists:keystore(Field#field.org_table,1,Rs,
 							{Field#field.org_table,[{Field#field.name,Val}|Obj]})
-					
+
 			end
 		end,
 	case lists:foldl(F,[],FL) of
@@ -2010,7 +2010,7 @@ sqlescape(X) ->
 % sqlunescape(<<>>,L) ->
 % 	list_to_binary(lists:reverse(L)).
 
-% Checks record field values for validity. If 
+% Checks record field values for validity. If
 %   some value has to be integer, try to turn into integer, etc.
 % Not used a.t.m., because objtorec also calls sqltypecheck and it will crash
 %  there if values are invalid
@@ -2261,9 +2261,9 @@ proptoset([],L) ->
 	L.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
+%
 % 						TYPE/FORMAT CONVERSION
-% 
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 encode_base64(V) ->
 	mochiweb_util:quote_plus(base64:encode(V)).
@@ -2274,7 +2274,7 @@ decode_percent(<<_/binary>> = B) ->
 	decode_percent([],B);
 decode_percent(L) ->
 	decode_percent([],L).
-	
+
 decode_percent(Bin,<<"%",A,B,R/binary>>) ->
 	decode_percent([(dec0(A)*16 + dec0(B))|Bin], R);
 decode_percent(Bin,<<"#",_,_,";",R/binary>>) ->
@@ -2394,7 +2394,7 @@ split(Skip,N,EntireBin, Split) ->
 % butil:shorten(1000) -> "qi"
 % butil:short_toint("qi") -> 1000
 -define(ALPHABET,<<"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz">>).
-	
+
 shorten(0) ->
 	alphabetchar(0);
 shorten(Int) ->
@@ -2434,7 +2434,7 @@ int2hex(N) when N =< 16#FFFF ->
 int2hex(N) when N =< 16#FFFFFFFF ->
 	dec2hex(<<N:32>>);
 int2hex(N) ->
-	dec2hex(<<N:64>>).	
+	dec2hex(<<N:64>>).
 
 dec2hex(<<_/binary>> = Bin) ->
     <<<<(hex0(H)), (hex0(L))>> || <<H:4, L:4>> <= Bin>>;
@@ -2650,7 +2650,7 @@ objtorec(A,[H|T],[TH|TT],R,Ind) ->
 	end;
 objtorec(_,[],[],R,_) ->
 	R.
-		
+
 
 matchany([V|_],V) ->
 	true;
@@ -2688,7 +2688,7 @@ consistent_hashing_sort(Val,[_|_] = L,N, Outl) ->
 consistent_hashing_sort(_,[],_,Outl) ->
 	Outl.
 
-% Takes a list of nodes, a list of interval points (generaly len(Nodes) < len(Int)) and 
+% Takes a list of nodes, a list of interval points (generaly len(Nodes) < len(Int)) and
 %   spreads the interval over nodes (by hashing, sorting and then dividing). If you add or remove
 %   a node, the segments will not rearange completely but it will rearange proportionaly, so it's not completely optimal
 %   if it's for load balancing of db or cache but good enough for a number of purposes.
@@ -2834,7 +2834,7 @@ replicate(0,_,L) ->
 	L;
 replicate(N,X,L) ->
 	replicate(N-1,X,[X|L]).
-		
+
 to_ip({A,B,C,D}) ->
 	lists:concat([A,".",B,".",C,".",D]);
 to_ip({A,B,C,D,E,F,G,H}) ->
@@ -2879,8 +2879,8 @@ ip_is_lan(IP) ->
 			true;
 		_ ->
 			false
-	end.		
-		
+	end.
+
 
 ip_to_int(IP) when is_integer(IP) ->
 	IP;
@@ -2922,7 +2922,7 @@ ip_to_int(IP) ->
 % 					exit({unrecognized_ip,IP})
 % 			end
 % 	end,
-	
+
 
 async_set_sockopt(ListSock, CliSocket) ->
     true = inet_db:register_socket(CliSocket, inet_tcp),
@@ -2985,7 +2985,7 @@ group_ip(Ip,L,[]) ->
 %  {"VTS","05","1.VOB"},
 %  {"VTS","06","0.VOB"},
 %  {"VTS","06","1.VOB"}]
-% To:  
+% To:
 % [{"06",[{"VTS","06","1.VOB"},{"VTS","06","0.VOB"}]},
 %  {"05",[{"VTS","05","1.VOB"},{"VTS","05","0.VOB"}]},
 %  {"04",[{"VTS","04","1.VOB"},{"VTS","04","0.VOB"}]},
@@ -3033,15 +3033,15 @@ uuid(X) ->
 	uuid_fromhash(dec2hex(crypto:hash(sha256,X))).
 uuid_fromhash(SX) ->
 	<<A:8/binary,B:4/binary,C:4/binary,D:4/binary,E:12/binary,_/binary>> = SX,
-	<<A/binary,"-",B/binary,"-",C/binary,"-",D/binary,"-",E/binary>>.	
+	<<A/binary,"-",B/binary,"-",C/binary,"-",D/binary,"-",E/binary>>.
 
 % pbkdf2
 % 	hash(String, [1,2,3,$.,$a], 2000, 32).
-hash(String, Salt, Iterations, OutKeyLen) ->	
+hash(String, Salt, Iterations, OutKeyLen) ->
 	NBlocks = ceiling(OutKeyLen / 20),
 	<<Res:OutKeyLen/binary, _/binary>> = cipher(1, NBlocks, <<>>, tobin(Salt), tobin(String), Iterations),
 	Res.
-	
+
 cipher(BlockIndex, MaxBlock,Out, Salt, String, Iterations) when BlockIndex =< MaxBlock ->
 	B = crypto:hmac(sha256,<<Salt/binary, BlockIndex:32>>, String),
 	Crypted = xorloop(Iterations, B, B, String),
@@ -3061,7 +3061,7 @@ xorbinary(A,B) ->
 	<<Bin/binary>> = <<(A1 bxor B1):256>>,
 	Bin.
 
-	
+
 % Generic data structure functions for: proplist,dict,gb_tree,set,process dictionary,ets
 %  ds_val and ds_vals works also with mochiweb_req and yaws #arg{}
 ds_new(What) ->
@@ -3303,7 +3303,7 @@ sparsemap(F,[H|T],L) ->
 	end;
 sparsemap(_,[],L) ->
 	lists:reverse(L).
-	
+
 
 bin_chunk(Bin,Size) ->
 	bin_chunk(Bin,Size,[]).
@@ -3316,7 +3316,7 @@ bin_chunk(Bin,Size,L) ->
 		_ ->
 			bin_chunk(<<>>, Size, [Bin|L])
 	end.
-	
+
 iolist_join([],_) ->
 	[];
 iolist_join(L,El) ->
@@ -3384,11 +3384,11 @@ lists_split_at(_,[],L) ->
 % 	exit(apply(Mod,Func,Args)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
+%
 % 						Very simple http client
 % 		It supports redirects and can work with or without content-length.
 % 		Connections are always closed after received http body (and it uses connection: close header)
-% 
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 http(Addr) ->
 	http(Addr,[],get,<<>>,[]).
@@ -3414,9 +3414,9 @@ http(Addr,Headers,Method,Body,ConnOpts) ->
 
 % Will execute http and reply with content on the same process.
 % If post, you have to set content-length header yourself and function will return {get_body,Param}
-%  Return values: {http_headers,Param,Status,HeaderList} | 
+%  Return values: {http_headers,Param,Status,HeaderList} |
 %									{http_chunk,Param,Bin} |
-% 								{http_done,Bin} | 
+% 								{http_done,Bin} |
 % 								{error,Error} |
 % 								{get_body,Param}
 % Example:
@@ -3431,7 +3431,7 @@ http(Addr,Headers,Method,Body,ConnOpts) ->
 % 	uploadfile(N+1,X);
 % uploadfile(_,{get_body,P}) ->
 % 	httpasync(util:http_ex_rec(P)).
-% 
+%
 %  Read response:
 % httpasync() ->
 % 	X = util:http_callback("http://www.google.com"),
@@ -3576,9 +3576,9 @@ httphead_body({Host,_Port,Us,Pw,Path,_Ssl},Headers1,Method,Body) ->
 							Auth,
 							% <<"Host: ">>,Host,<<"\r\n">>,
 						    <<"Connection: close\r\n">>,<<"\r\n">>,Body2].
-	
--record(httpr,{homeproc,sock, method = get, body = <<>>, recv_timeout = 60000, body_size = 0, headers = [], headersin = [], 
-			   status = 0, ssl, postbody = <<>>,connopts = [],chunkdest, tofile, 
+
+-record(httpr,{homeproc,sock, method = get, body = <<>>, recv_timeout = 60000, body_size = 0, headers = [], headersin = [],
+			   status = 0, ssl, postbody = <<>>,connopts = [],chunkdest, tofile, host,port,us,pw,
 			   tofilename, filesize = 0,callback = false,chunked = 0,contimeout = 3000,fromfile,followredirect = true}).
 
 extract_param([H|T],P,L) ->
@@ -3630,10 +3630,9 @@ http_ex(Home,{Host,Port,Us,Pw,Path,Ssl},Headers,Method,Body1,ConnOpts1) ->
 			Body = {fromfile,P1#httpr.fromfile}
 	end,
 	Httpheadbody = httphead_body({Host,Port,Us,Pw,Path,Ssl},Headers,Method,Body),
-	P = P1#httpr{homeproc = Home,ssl = Ssl, method = Method, %recv_timeout = RecvTimeout,
-													headersin = Headers, postbody = Body, connopts = ConnOpts1 %callback = Callback,
-													%tofile = Tofile, tofilename = Tofilename
-													},
+	P = P1#httpr{homeproc = Home,ssl = Ssl, method = Method, host = Host,port = Port,
+			us = Us, pw = Pw,
+			headersin = Headers, postbody = Body, connopts = ConnOpts1},
 	case Ssl of
 		true ->
 			case ssl:connect(tolist(Host),toint(Port),[{active,once},{keepalive,true},binary,{packet,http_bin}|ConnOpts],P#httpr.contimeout) of
@@ -3775,7 +3774,7 @@ http_ex_rec(P) ->
 			case P#httpr.followredirect of
 				true ->
 					Loc = ds_val('Location',P#httpr.headers),
-					http_ex(P#httpr.homeproc,Loc,P#httpr.headersin,P#httpr.method,P#httpr.postbody,P#httpr.connopts);
+					http_ex(P#httpr.homeproc,http_redirect(P,Loc),P#httpr.headersin,P#httpr.method,P#httpr.postbody,P#httpr.connopts);
 				false ->
 					{ok,tolist(P#httpr.status),P#httpr.headers,<<>>}
 			end;
@@ -3828,7 +3827,7 @@ http_ex_rec(P) ->
 		{_,Sock,{http_header,_,'Content-Length',_,Val}} ->
 			http_ex_rec(P#httpr{headers = [{'Content-Length',Val}|P#httpr.headers], body_size = toint(Val)});
 		{_,Sock,{http_header,_,'Transfer-Encoding',_,<<"chunked">>}} ->
-			http_ex_rec(P#httpr{headers = [{'Transfer-Encoding',<<"chunked">>}|P#httpr.headers], body_size = 0, 
+			http_ex_rec(P#httpr{headers = [{'Transfer-Encoding',<<"chunked">>}|P#httpr.headers], body_size = 0,
 														chunked = P#httpr.chunked+1});
 		{_,Sock,{http_header,_,Key,_,Val}} ->
 			http_ex_rec(P#httpr{headers = [{Key,Val}|P#httpr.headers]});
@@ -3839,7 +3838,7 @@ http_ex_rec(P) ->
 					case P#httpr.followredirect of
 						true ->
 							{'Location',Loc} = lists:keyfind('Location',1,P#httpr.headers),
-							http_ex(P#httpr.homeproc,Loc,P#httpr.headersin,P#httpr.method,P#httpr.postbody,P#httpr.connopts);
+							http_ex(P#httpr.homeproc,http_redirect(P,Loc),P#httpr.headersin,P#httpr.method,P#httpr.postbody,P#httpr.connopts);
 						false ->
 							{ok,tolist(P#httpr.status),P#httpr.headers,<<>>}
 					end;
@@ -3853,7 +3852,7 @@ http_ex_rec(P) ->
 				_ when P#httpr.callback ->
 					http_done;
 				_ ->
-					% If server sends chunked, and it is behind nginx, nginx will add another level of chunked. 
+					% If server sends chunked, and it is behind nginx, nginx will add another level of chunked.
 					% There will be two transfer-encoding: chunked headers, so unchunk as many times as there are
 					%  chunked headers.
 					Body = loop_chunked(P#httpr.chunked,P#httpr.body),
@@ -3871,6 +3870,13 @@ http_ex_rec(P) ->
 		after P#httpr.recv_timeout ->
 			{error,timeout_receive}
 	end.
+
+http_redirect(_P,"http://"++_ = Pth) ->
+	Pth;
+http_redirect(_P,"https://"++_ = Pth) ->
+	Pth;
+http_redirect(P,Pth) ->
+	{P#httpr.host,P#httpr.port,P#httpr.us,P#httpr.pw,Pth,P#httpr.ssl}.
 
 loop_chunked(0,Bin) ->
 	Bin;
@@ -3906,5 +3912,3 @@ is_proplist(List) ->
                      (_)      -> false
                   end,
                   List).
-
-
