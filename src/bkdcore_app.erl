@@ -93,7 +93,7 @@ stop(_State) ->
 	ok.
 
 get_network_interface()->
-	case application:get_env(bkdcore,rpcport) of
+	case application:get_env(bkdcore,rpc_interface_address) of
       {ok, Value} ->
           case inet:parse_address(Value) of
             {ok, IPAddress} -> ok;
