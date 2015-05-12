@@ -6,7 +6,7 @@
 -export([start/2, stop/1]).
 -compile(export_all).
 
-% Environment variables: 
+% Environment variables:
 %  - etc = path to etc folder
 %  - name = name of node
 %  - docompile = turn of compilation of erl and dtl files
@@ -51,61 +51,71 @@ start(_Type, _Args) ->
 			ok;
 		_ ->
 			application:set_env(bkdcore,Key,butil:expand_path(butil:tolist(Val)))
-		end 
+		end
 	end || {Key,Val1} <- Params, lists:member(Key,[key,crt,pem,statepath])],
 
 	% io:format("Application params ~p~n",[application:get_all_env(bkdcore)]),
-	
+
 	application:set_env(bkdcore,starttime,os:timestamp()),
 	application:set_env(bkdcore,randnum,erlang:phash2([Name,now()])),
 
 	bkdcore_changecheck:startup_node(),
 	{ok,SupPid} = bkdcore_sup:start_link(),
-		
+
 	case application:get_env(bkdcore,rpcport) of
 		undefined ->
 			ok;
 		{ok,RpcPort} ->
-			case node() of
-				'nonode@nohost' ->
-					IP = {127,0,0,1};
-				_ ->
-					case string:tokens(butil:tolist(node()),"@") of
-						[_,IP1] ->
-							case string:tokens(IP1,".") of
-								[_,_,_,_] ->
-									case catch butil:ip_to_tuple(IP1) of
-										{_,_,_,_} = IP ->
-											ok;
-										_ ->
-											IP = IP1
-									end;
-								_ ->
-									IP = IP1
-							end;
-						_ ->
-							IP = {127,0,0,1}
-					end
-			end,
-			case gen_tcp:connect(IP,RpcPort,[],100) of
-				{error,_} ->
-					ok;
-				{ok,_S} ->
-					error_logger:format("Local RPC address already taken ~p:~p~n",[butil:to_ip(IP),RpcPort]),
-					init:stop()
-			end,
-			application:start(ranch),
-			case is_tuple(IP) of
-				true ->
-					Limit = [{ip,IP}];
-				false ->
-					Limit = []
-			end,
-			{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp, [{port, RpcPort}, {max_connections, infinity}|Limit],bkdcore_rpc, [])
+			case get_network_interface() of
+				[] -> ok;
+				IP ->
+					case gen_tcp:connect(IP, RpcPort,[], 100) of
+						{error,_} ->
+							ok;
+						{ok,_S} ->
+							error_logger:format("Local RPC address already taken ~p:~p~n",[butil:to_ip(IP),RpcPort]),
+							init:stop()
+					end,
+					application:start(ranch),
+					case is_tuple(IP) of
+						true ->
+							Limit = [{ip,IP}];
+						false ->
+							Limit = []
+					end,
+					{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp, [{port, RpcPort}, {max_connections, infinity}|Limit],bkdcore_rpc, [])
+				end
 	end,
-	% bkdcore:startup_node(),
 	{ok,SupPid}.
 
 
 stop(_State) ->
 	ok.
+
+get_network_interface()->
+	case application:get_env(bkdcore,rpcport) of
+      {ok, Value} ->
+          case inet:parse_address(Value) of
+            {ok, IPAddress} -> ok;
+            _ ->
+              {ok, {hostent, _, [], inet, _, [IPAddress]}} = inet:gethostbyname(Value)
+          end;
+        _ ->
+          case string:tokens(atom_to_list(node()), "@") of
+            ["nonode","nohost"] -> IPAddress = {127,0,0,1};
+            [_Name, Value] ->
+              case inet:parse_address(Value) of
+                {ok, IPAddress} -> ok;
+                _ ->
+                  {ok, Hostname} = inet:gethostname(),
+                  {ok, {hostent, _, [], inet, _, [IPAddress]}} = inet:gethostbyname(Hostname)
+              end
+          end
+    end,
+    {ok, Addresses} = inet:getif(),
+    case lists:keyfind(IPAddress, 1, Addresses) of
+      false ->
+        [];
+      _ ->
+        IPAddress
+    end.
