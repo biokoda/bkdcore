@@ -2355,40 +2355,11 @@ prop_to_query(Props) ->
               end, [], Props),
     string:join(Pairs, "&").
 
-% like binary:split, stops at first occurence. Much faster than binary:split
 split_first(B,Split) ->
-	split_first(0,B,Split).
-split_first(N,EntireBin, Split) ->
-	SizeSplit = byte_size(Split),
-	case EntireBin of
-		<<Left:N/binary,Split:SizeSplit/binary,Rem/binary>> ->
-			[Left,Rem];
-		<<Bin:N/binary>> ->
-			[Bin];
-		_ ->
-			split_first(N+1,EntireBin,Split)
-	end.
+	binary:split(B,Split).
 
-% like binary:split with global. Much faster than binary:split
 split(B,Split) ->
-	split(0,0,B,Split).
-split(Skip,N,EntireBin, Split) ->
-	SizeSplit = byte_size(Split),
-	case EntireBin of
-		<<_:Skip/binary,Left:N/binary,Split:SizeSplit/binary,_/binary>> ->
-			case N of
-				0 ->
-					split(Skip+byte_size(Split),N,EntireBin,Split);
-				_ ->
-					[Left|split(Skip+N+byte_size(Split), 0, EntireBin,Split)]
-			end;
-		<<_:Skip/binary>> when N == 0 ->
-			[];
-		<<_:Skip/binary,Bin:N/binary>> ->
-			[Bin];
-		_ ->
-			split(Skip,N+1,EntireBin,Split)
-	end.
+	binary:split(B,Split,[global]).
 
 % Shorten is for a short string representation of integers.
 % butil:shorten(1000) -> "qi"
