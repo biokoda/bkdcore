@@ -3,7 +3,7 @@
 % file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -module(bkdcore_task).
 -behaviour(gen_server).
--export([print_info/0, start/0, stop/0, init/1, handle_call/3, 
+-export([print_info/0, start/0, stop/0, init/1, handle_call/3,
 		 handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([add_task/3,rem_task/1,exec/1,exists_task/1]).
 % -compile(export_all).
@@ -62,7 +62,7 @@ handle_cast({rem_task,Key}, P) ->
 	{noreply, P};
 handle_cast(_, P) ->
 	{noreply, P}.
-	
+
 handle_info({timeout,T}, P) ->
 	L = get({interval,T}),
 	erlang:send_after(T,self(),{timeout,T}),
@@ -73,7 +73,7 @@ handle_info({timeout,T}, P) ->
 			[runproc(element(2,get(Key))) || Key <- L]
 	end,
 	{noreply, P};
-handle_info(_, P) -> 
+handle_info(_, P) ->
 	{noreply, P}.
 
 terminate(_, _) ->

@@ -231,7 +231,7 @@ traverse_paths(Dict,[], _Op) ->
 traverse_files(Dict,Path, ["." ++ _|T],Op) ->
 	traverse_files(Dict,Path, T,Op);
 traverse_files(Dict,Path, [H|T],Op) ->
-	PrevTime = butil:ds_val(H,Dict),
+	PrevTime = butil:ds_val({Path,H},Dict),
 	case file:read_file_info([Path, "/", H]) of
 		{ok, I} ->
 			case erlang:localtime() of
@@ -245,7 +245,7 @@ traverse_files(Dict,Path, [H|T],Op) ->
 							traverse_files(Dict,Path,[H|T],Op)
 					end;
 				_ ->
-					NDict = butil:ds_add(H,I#file_info.mtime,Dict),
+					NDict = butil:ds_add({Path,H},I#file_info.mtime,Dict),
 					case true of
 						_ when PrevTime == undefined ->
 							[FType|_] = lists:reverse(string:tokens(H, ".")),

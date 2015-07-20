@@ -8,14 +8,14 @@
 % API
 -export([call/2,cast/2,async_call/3,multicall/2,is_connected/1]).
 % gen_server
--export([start/0,start/1,start/2, stop/1,stop/0, init/1, handle_call/3, 
+-export([start/0,start/1,start/2, stop/1,stop/0, init/1, handle_call/3,
  		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
 -export([start_link/4,init/4]).
 % -compile([export_all]).
 -define(CHUNKSIZE,16834).
 
 % RPC between bkdcore nodes
-% Large calls are supported. Every call is split into 16kB chunks. 
+% Large calls are supported. Every call is split into 16kB chunks.
 %  So sending multimegabyte data over RPC is fine and will not block other smaller calls for longer than it takes to send a 16KB chunk.
 
 call(Node,Msg) ->
@@ -72,7 +72,7 @@ async_call(From,Node,Msg) ->
 			gen_server:cast(Pid,{call,From,Msg});
 		Err ->
 			Err
-	end.	
+	end.
 
 cast(Node,Msg) ->
 	% ?INF("rpc cast to ~p ~p",[Node,bkdcore:nodelist()]),
@@ -118,7 +118,7 @@ stop(Node) ->
 getpid(Node) ->
 	case distreg:whereis({bkdcore,Node}) of
 		undefined ->
-			Pid = 
+			Pid =
 			case start(Node) of
 				{error,name_exists} ->
 					getpid(Node);
@@ -144,7 +144,7 @@ handle_call(_Msg,_,#dp{direction = sender, sock = undefined} = P) ->
 handle_call({call,permanent},_,P) ->
 	{reply,ok,P#dp{permanent = true}};
 handle_call({call,Msg},From,P) ->
-	Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
+    Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
 	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount + 1});
 handle_call({reply,Bin},From,P) ->
 	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount - 1});
@@ -211,7 +211,7 @@ handle_info({tcp,_S,Bin},#dp{direction = tunnel} = P) ->
 		State ->
 			ok
 	end,
-	{noreply,P#dp{tunnelstate = State, respawn_timer = P#dp.respawn_timer+1}};
+	{noreply,P#dp{tunnelstate = State, respawn_timer = P#dp.respawn_timer}};
 handle_info({tcp_passive, _Socket},P) ->
 	% lager:info("tcp_passive ~p",[{P#dp.connected_to,P#dp.iteration}]),
 	case P#dp.respawn_timer > 3000 of
@@ -343,7 +343,7 @@ handle_info(reconnect,P) ->
 		_ ->
 			{noreply,P}
 	end;
-handle_info(_Msg, P) -> 
+handle_info(_Msg, P) ->
 	io:format("bkdcoreout invalid msg ~p~n",[_Msg]),
 	{noreply, P}.
 
@@ -424,10 +424,10 @@ exec(Home,Msg) ->
 		{rpcreply,{From,X}} ->
 			gen_server:reply(From,X),
 			gen_server:cast(Home,decr_callcount);
-		{From,{Mod,Func,Param}} when Mod /= file, Mod /= filelib, Mod /= init, 
+		{From,{Mod,Func,Param}} when Mod /= file, Mod /= filelib, Mod /= init,
 									Mod /= io, Mod /= os, Mod /= erlang, Mod /= code ->
 			% Start = os:timestamp(),
-			case catch apply(Mod,Func,Param) of
+            case catch apply(Mod,Func,Param) of
 				X when From /= undefined ->
 					% Stop = os:timestamp(),
 					% Diff = timer:now_diff(Stop,Start),
