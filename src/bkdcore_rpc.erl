@@ -9,7 +9,7 @@
 -export([call/2,cast/2,async_call/3,multicall/2,is_connected/1]).
 % gen_server
 -export([start/0,start/1,start/2, stop/1,stop/0, init/1, handle_call/3,
- 		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
+		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
 -export([start_link/4,init/4]).
 % -compile([export_all]).
 -define(CHUNKSIZE,16834).
@@ -144,7 +144,7 @@ handle_call(_Msg,_,#dp{direction = sender, sock = undefined} = P) ->
 handle_call({call,permanent},_,P) ->
 	{reply,ok,P#dp{permanent = true}};
 handle_call({call,Msg},From,P) ->
-    Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
+	Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
 	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount + 1});
 handle_call({reply,Bin},From,P) ->
 	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount - 1});
@@ -354,7 +354,7 @@ code_change(_, P, _) ->
 
 % Ranch
 start_link(Ref, Socket, Transport, Opts) ->
-    proc_lib:start_link(?MODULE, init, [Ref, Socket, Transport, Opts]).
+	proc_lib:start_link(?MODULE, init, [Ref, Socket, Transport, Opts]).
 
 init(Ref, Socket, Transport, _Opts) ->
 	ok = proc_lib:init_ack({ok, self()}),
@@ -374,7 +374,7 @@ init([{From,FromRef},Node]) ->
 				{IP,Port} ->
 					%{ip,butil:ip_to_tuple(element(1,bkdcore:node_address()))}
 					case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,once},
-                                                  {send_timeout,2000},{nodelay,true}],2000) of
+							{send_timeout,2000},{nodelay,true}],2000) of
 						{ok,S} ->
 							ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
 							erlang:send_after(5000,self(),timeout),
@@ -397,7 +397,7 @@ connect_to(Home,Node) ->
 	{IP,Port} = bkdcore:node_address(Node),
 	%{ip,butil:ip_to_tuple(element(1,bkdcore:node_address()))}
 	case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,false},
-                                  {send_timeout,2000},{nodelay,true}],2000) of
+			{send_timeout,2000},{nodelay,true}],2000) of
 		{ok,S} ->
 			ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
 			gen_tcp:controlling_process(S,Home),
@@ -425,9 +425,9 @@ exec(Home,Msg) ->
 			gen_server:reply(From,X),
 			gen_server:cast(Home,decr_callcount);
 		{From,{Mod,Func,Param}} when Mod /= file, Mod /= filelib, Mod /= init,
-									Mod /= io, Mod /= os, Mod /= erlang, Mod /= code ->
+				Mod /= io, Mod /= os, Mod /= erlang, Mod /= code ->
 			% Start = os:timestamp(),
-            case catch apply(Mod,Func,Param) of
+			case catch apply(Mod,Func,Param) of
 				X when From /= undefined ->
 					% Stop = os:timestamp(),
 					% Diff = timer:now_diff(Stop,Start),

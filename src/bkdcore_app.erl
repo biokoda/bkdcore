@@ -83,7 +83,8 @@ start(_Type, _Args) ->
 						false ->
 							Limit = []
 					end,
-					{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp, [{port, RpcPort}, {max_connections, infinity}|Limit],bkdcore_rpc, [])
+					{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp, 
+						[{port, RpcPort}, {max_connections, infinity}|Limit],bkdcore_rpc, [])
 				end
 	end,
 	{ok,SupPid}.
@@ -94,28 +95,28 @@ stop(_State) ->
 
 get_network_interface()->
 	case application:get_env(bkdcore,rpc_interface_address) of
-      {ok, Value} ->
-          case inet:parse_address(Value) of
-            {ok, IPAddress} -> ok;
-            _ ->
-              {ok, {hostent, _, [], inet, _, [IPAddress]}} = inet:gethostbyname(Value)
-          end;
-        _ ->
-          case string:tokens(atom_to_list(node()), "@") of
-            ["nonode","nohost"] -> IPAddress = {127,0,0,1};
-            [_Name, Value] ->
-              case inet:parse_address(Value) of
-                {ok, IPAddress} -> ok;
-                _ ->
-                  {ok, Hostname} = inet:gethostname(),
-                  {ok, {hostent, _, [], inet, _, [IPAddress]}} = inet:gethostbyname(Hostname)
-              end
-          end
-    end,
-    {ok, Addresses} = inet:getif(),
-    case lists:keyfind(IPAddress, 1, Addresses) of
-      false ->
-        [];
-      _ ->
-        IPAddress
-    end.
+	  {ok, Value} ->
+		  case inet:parse_address(Value) of
+			{ok, IPAddress} -> ok;
+			_ ->
+			  {ok, {hostent, _, [], inet, _, [IPAddress]}} = inet:gethostbyname(Value)
+		  end;
+		_ ->
+		  case string:tokens(atom_to_list(node()), "@") of
+			["nonode","nohost"] -> IPAddress = {127,0,0,1};
+			[_Name, Value] ->
+			  case inet:parse_address(Value) of
+				{ok, IPAddress} -> ok;
+				_ ->
+				  {ok, Hostname} = inet:gethostname(),
+				  {ok, {hostent, _, [], inet, _, [IPAddress]}} = inet:gethostbyname(Hostname)
+			  end
+		  end
+	end,
+	{ok, Addresses} = inet:getif(),
+	case lists:keyfind(IPAddress, 1, Addresses) of
+	  false ->
+		[];
+	  _ ->
+		IPAddress
+	end.

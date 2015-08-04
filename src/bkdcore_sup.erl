@@ -15,22 +15,11 @@ init([]) ->
 			Mochi = [];
 		_ ->
 			Mochi = [{bkdcore_mochi,
-								{bkdcore_mochi, start, []},
-								 permanent,
-								 100,
-								 worker,
-								[bkdcore_mochi]}]
-	end,
-	case bkdcore:rpcport() of
-		undefined ->
-			Tcp = [];
-		_ ->
-		Tcp = [{bkdcore_rpc,
-			{bkdcore_rpc, start, []},
+			{bkdcore_mochi, start, []},
 			 permanent,
 			 100,
 			 worker,
-			[bkdcore_rpc]}]
+			[bkdcore_mochi]}]
 	end,
 	case application:get_env(bkdcore,usesharedstate) of
 		{ok,false} ->
@@ -76,6 +65,6 @@ init([]) ->
 				 100,
 				 worker,
 				[bkdcore_cache]}
-		 ] ++ Shared ++ Mochi ++ Tcp
+		 ] ++ Shared ++ Mochi
 	}}.
 
