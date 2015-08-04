@@ -6,7 +6,7 @@
 -include("bkdcore.hrl").
 -compile([{parse_transform, lager_transform}]).
 % API
--export([call/2,cast/2,async_call/3,multicall/2,is_connected/1]).
+-export([call/2,cast/2,async_call/3,multicall/2,is_connected/1,isolate/2]).
 % gen_server
 -export([start/0,start/1,start/2, stop/1,stop/0, init/1, handle_call/3,
 		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
@@ -17,6 +17,9 @@
 % RPC between bkdcore nodes
 % Large calls are supported. Every call is split into 16kB chunks.
 %  So sending multimegabyte data over RPC is fine and will not block other smaller calls for longer than it takes to send a 16KB chunk.
+
+isolate(Pid,Bool) ->
+	gen_server:call(Pid,{isolated,Bool}).
 
 call(Node,Msg) ->
 	% ?INF("rpc to ~p ~p",[Node,bkdcore:nodelist()]),
@@ -137,7 +140,7 @@ getpid(Node) ->
 -record(dp,{sock,sendproc,calln = 0,callsininterval = 0, callcount = 0,
 			respawn_timer = 0, iteration = 0,
 			permanent = false, direction,transport, tunnelstate,
-			isinit = false, connected_to,tunnelmod, reconnecter}).
+			isinit = false, connected_to,tunnelmod, reconnecter, isolated = false}).
 
 handle_call(_Msg,_,#dp{direction = sender, sock = undefined} = P) ->
 	{reply,{error,econnrefused},P};
@@ -162,6 +165,8 @@ handle_call({sendbin,Bin},_,P) ->
 				callsininterval = P#dp.callsininterval + 1}};
 handle_call(is_connected,_,P) ->
 	{reply,true,P};
+handle_call({isolated,I},_,P) ->
+	{reply,ok,P#dp{isolated = I}};
 handle_call({print_info}, _, P) ->
 	io:format("~p~n", [P]),
 	{reply, ok, P};
@@ -204,6 +209,8 @@ handle_info({tcp,S,<<Key:40/binary,Rem/binary>>},#dp{direction = receiver,isinit
 			{noreply,P#dp{direction = tunnel, isinit = true, permanent = true, connected_to = From,
 						  tunnelmod = binary_to_existing_atom(Mod,latin1)}}
 	end;
+handle_info({tcp,_S,_Bin},#dp{direction = tunnel, isolated = true} = P) ->
+	{noreply,P};
 handle_info({tcp,_S,Bin},#dp{direction = tunnel} = P) ->
 	case catch apply(P#dp.tunnelmod,tunnel_bin,[P#dp.tunnelstate,Bin]) of
 		{'EXIT',_Err}  ->
@@ -252,9 +259,9 @@ handle_info({tcp,_,<<Id:24/unsigned,SizeAndBody/binary>>},P) ->
 			<<Size:32/unsigned,Body/binary>> = SizeAndBody,
 			case Size == byte_size(Body) of
 				true ->
-					{ProcPid,_} = spawn_monitor(fun() -> exec(Home,Body) end);
+					{ProcPid,_} = spawn_monitor(fun() -> exec(P#dp.isolated,Home,Body) end);
 				false ->
-					{ProcPid,_} = spawn_monitor(fun() -> exec_gather(Home,Body) end)
+					{ProcPid,_} = spawn_monitor(fun() -> exec_gather(P#dp.isolated,Home,Body) end)
 			end,
 			put(Id,{Size - byte_size(Body),ProcPid}),
 			put(ProcPid,Id);
@@ -317,7 +324,7 @@ handle_info({tcp_closed,_},P) ->
 	{stop,normal,P};
 handle_info(timeout,P) ->
 	case P#dp.callsininterval of
-		0 when P#dp.permanent == false, P#dp.callcount == 0, P#dp.direction == sender ->
+		0 when P#dp.permanent == false, P#dp.callcount == 0, P#dp.direction == sender, P#dp.isolated == false ->
 			% If nothing is going on, first unreg,
 			%  then in next timeout die off. To prevent any race conditions.
 			case P#dp.connected_to of
@@ -406,20 +413,22 @@ connect_to(Home,Node) ->
 			exit(false)
 	end.
 
-exec_gather(Home,Bin) ->
+exec_gather(Isolated,Home,Bin) ->
 	erlang:monitor(process,Home),
-	exec_sum(Home,Bin).
-exec_sum(Home,Bin) ->
+	exec_sum(Isolated,Home,Bin).
+exec_sum(I,Home,Bin) ->
 	receive
 		{chunk,C} ->
-			exec_sum(Home,<<Bin/binary,C/binary>>);
+			exec_sum(I,Home,<<Bin/binary,C/binary>>);
 		{'DOWN',_Monitor,_,Home,_Reason} ->
 			ok;
 		{done,C} ->
-			exec(Home,<<Bin/binary,C/binary>>)
+			exec(I,Home,<<Bin/binary,C/binary>>)
 	end.
 
-exec(Home,Msg) ->
+exec(true,Home,_Msg) ->
+	gen_server:call(Home,{reply,term_to_binary({rpcreply,{error,closed}},[compressed,{minor_version,1}])});
+exec(_,Home,Msg) ->
 	case binary_to_term(Msg) of
 		{rpcreply,{From,X}} ->
 			gen_server:reply(From,X),
