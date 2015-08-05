@@ -426,8 +426,18 @@ exec_sum(I,Home,Bin) ->
 			exec(I,Home,<<Bin/binary,C/binary>>)
 	end.
 
-exec(true,Home,_Msg) ->
-	gen_server:call(Home,{reply,term_to_binary({rpcreply,{error,closed}},[compressed,{minor_version,1}])});
+exec(true,Home,Msg) ->
+	case binary_to_term(Msg) of
+		{rpcreply,{From,_X}} ->
+			?ERR("Replying erorr closed! on ~p",[From]),
+			gen_server:reply(From,{error,closed}),
+			gen_server:cast(Home,decr_callcount);
+		{undefined,_} ->
+			ok;
+		{From,_} ->
+			?ERR("Replying erorr closed! on ~p",[From]),
+			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,{error,closed}}},[compressed,{minor_version,1}])})
+	end;
 exec(_,Home,Msg) ->
 	case binary_to_term(Msg) of
 		{rpcreply,{From,X}} ->
