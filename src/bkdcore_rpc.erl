@@ -24,7 +24,7 @@ isolate(Bool) ->
 			application:set_env(bkdcore,isolated,Bool),
 			L = supervisor:which_children(Cons),
 			[Pid ! {isolate,Bool} || {bkdcore_rpc,Pid,worker,[bkdcore_rpc]} <- L],
-			[butil:safesend(distreg:whereis({bkdcore,Nd}),{isolate,Bool}) || Nd <- bkdcore:nodelist()],
+			[butil:safesend(distreg:whereis({bkdcore,Nd}),{isolated,Bool}) || Nd <- bkdcore:nodelist()],
 			ok;
 		_ ->
 			ok
