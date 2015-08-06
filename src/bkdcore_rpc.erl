@@ -6,7 +6,7 @@
 -include("bkdcore.hrl").
 -compile([{parse_transform, lager_transform}]).
 % API
--export([call/2,cast/2,async_call/3,multicall/2,is_connected/1,isolate/2]).
+-export([call/2,cast/2,async_call/3,multicall/2,is_connected/1,isolate/1]).
 % gen_server
 -export([start/0,start/1,start/2, stop/1,stop/0, init/1, handle_call/3,
 		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
@@ -18,8 +18,18 @@
 % Large calls are supported. Every call is split into 16kB chunks.
 %  So sending multimegabyte data over RPC is fine and will not block other smaller calls for longer than it takes to send a 16KB chunk.
 
-isolate(Pid,Bool) ->
-	gen_server:call(Pid,{isolated,Bool}).
+isolate(Bool) ->
+	case catch ranch_server:get_connections_sup(bkdcore_in) of
+		Cons when is_pid(Cons) ->
+			application:set_env(bkdcore,isolated,Bool),
+			L = supervisor:which_children(Cons),
+			[Pid ! {isolate,Bool} || {bkdcore_rpc,Pid,worker,[bkdcore_rpc]} <- L],
+			[butil:safesend(distreg:whereis({bkdcore,Nd}),{isolate,Bool}) || Nd <- bkdcore:nodelist()],
+			ok;
+		_ ->
+			ok
+	end.
+	% gen_server:call(Pid,{isolated,Bool}).
 
 call(Node,Msg) ->
 	% ?INF("rpc to ~p ~p",[Node,bkdcore:nodelist()]),
@@ -144,6 +154,8 @@ getpid(Node) ->
 
 handle_call(_Msg,_,#dp{direction = sender, sock = undefined} = P) ->
 	{reply,{error,econnrefused},P};
+handle_call(_Msg,_,#dp{direction = sender, isolated = true} = P) ->
+	{reply,{error,econnrefused},P};
 handle_call({call,permanent},_,P) ->
 	{reply,ok,P#dp{permanent = true}};
 handle_call({call,Msg},From,P) ->
@@ -165,8 +177,6 @@ handle_call({sendbin,Bin},_,P) ->
 				callsininterval = P#dp.callsininterval + 1}};
 handle_call(is_connected,_,P) ->
 	{reply,true,P};
-handle_call({isolated,I},_,P) ->
-	{reply,ok,P#dp{isolated = I}};
 handle_call({print_info}, _, P) ->
 	io:format("~p~n", [P]),
 	{reply, ok, P};
@@ -228,6 +238,8 @@ handle_info({tcp_passive, _Socket},P) ->
 			inet:setopts(P#dp.sock,[{active, 32}]),
 			{noreply,P}
 	end;
+handle_info({isolated,I},P) ->
+	{noreply,P#dp{isolated = I}};
 handle_info(restart,P) ->
 	% lager:info("Restarting tunnel process ~p",[{P#dp.connected_to,P#dp.iteration}]),
 	NewId = {?MODULE,P#dp.connected_to,P#dp.iteration+1},
@@ -375,6 +387,12 @@ init([]) ->
 init([{?MODULE,_ConnectedTo,Iteration},P]) ->
 	{ok,P#dp{iteration = Iteration, respawn_timer = 0}};
 init([{From,FromRef},Node]) ->
+	case application:get_env(bkdcore,isolated) of
+		{ok,Isolated} ->
+			ok;
+		_ ->
+			Isolated = false
+	end,
 	case distreg:reg({bkdcore,Node}) of
 		ok ->
 			case bkdcore:node_address(Node) of
@@ -385,11 +403,11 @@ init([{From,FromRef},Node]) ->
 						{ok,S} ->
 							ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
 							erlang:send_after(5000,self(),timeout),
-							{ok, #dp{sock = S, direction = sender, connected_to = Node}};
+							{ok, #dp{sock = S, direction = sender, connected_to = Node, isolated = Isolated}};
 						_Err ->
 							lager:error("Unable to connect to node=~p, addr=~p, err=~p",[Node,{IP,Port},_Err]),
 							erlang:send_after(1000,self(),reconnect),
-							{ok,#dp{direction = sender, connected_to = Node}}
+							{ok,#dp{direction = sender, connected_to = Node, isolated = Isolated}}
 					end;
 				undefined ->
 					lager:error("Node address does not exist ~p",[Node]),
@@ -430,13 +448,13 @@ exec(true,Home,Msg) ->
 	case binary_to_term(Msg) of
 		{rpcreply,{From,_X}} ->
 			?ERR("Replying erorr closed! on ~p",[From]),
-			gen_server:reply(From,{error,closed}),
+			gen_server:reply(From,{error,econnrefused}),
 			gen_server:cast(Home,decr_callcount);
 		{undefined,_} ->
 			ok;
 		{From,_} ->
 			?ERR("Replying erorr closed! on ~p",[From]),
-			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,{error,closed}}},[compressed,{minor_version,1}])})
+			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,{error,econnrefused}}},[compressed,{minor_version,1}])})
 	end;
 exec(_,Home,Msg) ->
 	case binary_to_term(Msg) of
