@@ -3048,7 +3048,11 @@ ds_new(What) ->
 		proplist ->
 			[];
 		procdict ->
-			procdict
+			procdict;
+		maps ->
+			maps:new();
+		map ->
+			maps:new()
 	end.
 
 ds_add(K,V,procdict) ->
@@ -3069,6 +3073,8 @@ ds_add(K,V,T) when is_tuple(T) ->
 	end;
 ds_add({A,K},V,application) ->
 	application:set_env(A,K,V);
+ds_add(K,V,M) when is_map(M) ->
+	maps:put(K,V,M);
 ds_add(K,V,T) when is_integer(T); is_atom(T) ->
 	ets:insert(T,{K,V}),
 	T.
@@ -3101,6 +3107,8 @@ ds_rem(K,T) when is_tuple(T) ->
 		bkdreq ->
 			T#bkdreq{params = ds_rem(K,T#bkdreq.params)}
 	end;
+ds_rem(K,M) when is_map(M) ->
+	maps:remove(K,M);
 ds_rem(K,T) when is_integer(T); is_atom(T) ->
 	ets:delete(T,K),
 	T.
@@ -3153,6 +3161,8 @@ ds_val({A,K},application) ->
 		{ok,V} ->
 			V
 	end;
+ds_val(K,M) when is_map(M) ->
+	maps:get(K,M);
 ds_val(K,T) when is_integer(T); is_atom(T) ->
 	case ets:lookup(T,K) of
 		[{_,V}] ->
@@ -3188,6 +3198,8 @@ ds_size(T) when is_tuple(T) ->
 		_ when tuple_size(T) == 2 ->
 			gb_trees:size(T)
 	end;
+ds_size(M) when is_map(M) ->
+	maps:size(M);
 ds_size(T) when is_integer(T); is_atom(T) ->
 	ets:info(T,size).
 
@@ -3206,6 +3218,8 @@ ds_tolist(T) when is_tuple(T) ->
 		bkdreq ->
 			ds_tolist(T#bkdreq.params)
 	end;
+ds_tolist(M) when is_map(M) ->
+	maps:to_list(M);
 ds_tolist(T) when is_integer(T); is_atom(T) ->
 	ets:tab2list(T).
 
