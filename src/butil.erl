@@ -3230,6 +3230,22 @@ ds_addvals([H|T],DS) ->
 ds_addvals([],DS) ->
 	DS.
 
+update_ds(K,V,[_|_] = Obj) ->
+	case lists:keyfind(K,1,Obj) of
+		false ->
+			[{K,V}|Obj];
+		_ ->
+			lists:keyreplace(K,1,Obj,{K,V})
+	end;
+update_ds(K,V,Obj) ->
+	butil:ds_add(K,V,Obj).
+update_ds([X|T], Obj) when is_list(X) ->
+	update_ds(T,update_ds(X,Obj));
+update_ds([{K,V}|T], Obj) ->
+	update_ds(T,update_ds(K,V,Obj));
+update_ds([],O) ->
+	O.
+
 type(<<_/binary>> = _) ->
 	binary;
 type(X) when is_list(X) ->
