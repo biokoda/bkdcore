@@ -41,8 +41,12 @@ call(Node,Msg) ->
 					call(Node,Msg);
 				{'EXIT',{normal,_}} ->
 					{error,econnrefused};
+				{'EXIT',{invalidnode,_}} ->
+					{error,invalidnode};
 				normal ->
 					{error,econnrefused};
+				invalidnode ->
+					{error,invalidnode};
 				X ->
 					X
 			end;
@@ -53,7 +57,7 @@ call(Node,Msg) ->
 is_connected(Node) ->
 	case getpid(Node) of
 		Pid when is_pid(Pid) ->
-			Res = gen_server:call(Pid,is_connected);
+			Res = (catch gen_server:call(Pid,is_connected));
 		_ ->
 			Res = error
 	end,
@@ -148,9 +152,9 @@ getpid(Node) ->
 	Pid.
 
 -record(dp,{sock,sendproc,calln = 0,callsininterval = 0, callcount = 0,
-			respawn_timer = 0, iteration = 0,
-			permanent = false, direction,transport, tunnelstate,
-			isinit = false, connected_to,tunnelmod, reconnecter, isolated = false}).
+respawn_timer = 0, iteration = 0,
+permanent = false, direction,transport, tunnelstate,
+isinit = false, connected_to,tunnelmod, reconnecter, isolated = false}).
 
 handle_call(_Msg,_,#dp{direction = sender, sock = undefined} = P) ->
 	{reply,{error,econnrefused},P};
@@ -307,6 +311,8 @@ handle_info({'DOWN',_Monitor,_,PID,Reason}, #dp{reconnecter = PID} = P) ->
 	case Reason of
 		false ->
 			{noreply, P#dp{reconnecter = undefined}};
+		invalidnode ->
+			{stop,invalidnode,P};
 		Socket ->
 			?INF("Reconnected to ~p",[P#dp.connected_to]),
 			erlang:send_after(5000,self(),timeout),
@@ -419,16 +425,19 @@ init([{From,FromRef},Node]) ->
 	end.
 
 connect_to(Home,Node) ->
-	{IP,Port} = bkdcore:node_address(Node),
-	%{ip,butil:ip_to_tuple(element(1,bkdcore:node_address()))}
-	case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,false},
-			{send_timeout,2000},{nodelay,true}],2000) of
-		{ok,S} ->
-			ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
-			gen_tcp:controlling_process(S,Home),
-			exit(S);
-		_Err ->
-			exit(false)
+	case (catch bkdcore:node_address(Node)) of
+		{IP,Port} when is_list(IP), is_integer(Port) ->
+			case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,false},
+					{send_timeout,2000},{nodelay,true}],2000) of
+				{ok,S} ->
+					ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
+					gen_tcp:controlling_process(S,Home),
+					exit(S);
+				_Err ->
+					exit(false)
+			end;
+		_ ->
+			exit(invalidnode)
 	end.
 
 exec_gather(Isolated,Home,Bin) ->

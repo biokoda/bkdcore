@@ -20,13 +20,13 @@ start(_Type, _Args) ->
 	application:start(yamerl),
 	butil:wait_for_app(yamerl),
 	Params = [begin
-							case application:get_env(bkdcore,K) of
-								{ok,V} ->
-									{K,V};
-								_ ->
-									{K,undefined}
-							end
-						end || K <- [statepath,webport,rpcport,name,key,pem,crt]],
+			case application:get_env(bkdcore,K) of
+				{ok,V} ->
+					{K,V};
+				_ ->
+					{K,undefined}
+			end
+		end || K <- [statepath,webport,rpcport,name,key,pem,crt]],
 	case butil:ds_val(name,Params) of
 		undefined ->
 			[Name|_] = string:tokens(butil:tolist(node()),"@"),
@@ -57,7 +57,7 @@ start(_Type, _Args) ->
 	% io:format("Application params ~p~n",[application:get_all_env(bkdcore)]),
 
 	application:set_env(bkdcore,starttime,os:timestamp()),
-	application:set_env(bkdcore,randnum,erlang:phash2([Name,now()])),
+	application:set_env(bkdcore,randnum,erlang:phash2([Name,os:timestamp()])),
 
 	bkdcore_changecheck:startup_node(),
 	{ok,SupPid} = bkdcore_sup:start_link(),
