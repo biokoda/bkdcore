@@ -142,7 +142,7 @@ getpid(Node) ->
 				{error,normal} ->
 					{error,econnrefused};
 				{error,E} ->
-					E;
+					{error,E};
 				{ok,Pid1} ->
 					Pid1
 			end;
