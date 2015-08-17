@@ -1193,10 +1193,15 @@ time_to_bstring(Delim) when is_list(Delim) ->
 	time_to_bstring(time(), list_to_binary(Delim)).
 time_to_bstring(T, Delim) when is_list(Delim) ->
 	time_to_bstring(T,list_to_binary(Delim));
-time_to_bstring({Hour, Min, Sec}, Delim) when is_binary(Delim) ->
+time_to_bstring({Hour, Min, Sec}, Delim) when is_binary(Delim), is_integer(Sec) ->
 	HourBin = list_to_binary(string:right(integer_to_list(Hour), 2, $0)),
 	MinBin = list_to_binary(string:right(integer_to_list(Min), 2, $0)),
 	SecBin = list_to_binary(string:right(integer_to_list(Sec), 2, $0)),
+	<<HourBin/binary, Delim/binary, MinBin/binary, Delim/binary, SecBin/binary>>;
+time_to_bstring({Hour, Min, Sec}, Delim) when is_binary(Delim), is_float(Sec) ->
+	HourBin = list_to_binary(string:right(integer_to_list(Hour), 2, $0)),
+	MinBin = list_to_binary(string:right(integer_to_list(Min), 2, $0)),
+	SecBin = tobin(Sec),
 	<<HourBin/binary, Delim/binary, MinBin/binary, Delim/binary, SecBin/binary>>.
 
 timestr_to_loctime(Date) when is_binary(Date) ->
