@@ -6,7 +6,7 @@
 -include("bkdcore.hrl").
 -compile([{parse_transform, lager_transform}]).
 % API
--export([call/2,cast/2,async_call/3,multicall/2,is_connected/1,isolate/1]).
+-export([call/2,cast/2,async_call/3,multicall/2,is_connected/1,isolate/1, isolate_from/2]).
 % gen_server
 -export([start/0,start/1,start/2, stop/1,stop/0, init/1, handle_call/3,
 		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
@@ -32,7 +32,16 @@ isolate(Bool) ->
 		_ ->
 			ok
 	end.
-	% gen_server:call(Pid,{isolated,Bool}).
+
+isolate_from(Nd,Bool) ->
+	case catch ranch_server:get_connections_sup(bkdcore_in) of
+		Cons when is_pid(Cons) ->
+			L = supervisor:which_children(Cons),
+			lager:info("Isolate from=~p, cons=~p",[Nd,L]),
+			[Pid ! {isolated,Nd,Bool} || {bkdcore_rpc,Pid,worker,[bkdcore_rpc]} <- L];
+		_ ->
+			ok
+	end.
 
 call(Node,Msg) ->
 	% ?INF("rpc to ~p ~p",[Node,bkdcore:nodelist()]),
@@ -245,6 +254,9 @@ handle_info({tcp_passive, _Socket},P) ->
 			inet:setopts(P#dp.sock,[{active, 32}]),
 			{noreply,P}
 	end;
+handle_info({isolated,Nd,I},#dp{connected_to = Nd} = P) ->
+	lager:info("Isolation=~p, for con=~p, direction=~p",[I,P#dp.connected_to,P#dp.direction]),
+	{noreply,P#dp{isolated = I}};
 handle_info({isolated,I},P) ->
 	lager:info("Isolation=~p, for con=~p, direction=~p",[I,P#dp.connected_to,P#dp.direction]),
 	{noreply,P#dp{isolated = I}};
