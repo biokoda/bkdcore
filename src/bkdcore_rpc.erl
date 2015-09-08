@@ -23,7 +23,10 @@ isolate(Bool) ->
 		Cons when is_pid(Cons) ->
 			application:set_env(bkdcore,isolated,Bool),
 			L = supervisor:which_children(Cons),
-			[Pid ! {isolate,Bool} || {bkdcore_rpc,Pid,worker,[bkdcore_rpc]} <- L],
+			lager:info("Isolating to pids=~p",[L]),
+			% Receiver connections
+			[Pid ! {isolated,Bool} || {bkdcore_rpc,Pid,worker,[bkdcore_rpc]} <- L],
+			% Sender connections
 			[butil:safesend(distreg:whereis({bkdcore,Nd}),{isolated,Bool}) || Nd <- bkdcore:nodelist()],
 			ok;
 		_ ->
@@ -178,7 +181,7 @@ handle_call({sendbin,Bin},_,P) ->
 	Packet = [<<(P#dp.calln):24/unsigned,(byte_size(Bin)):32/unsigned>>,First],
 	ok = gen_tcp:send(P#dp.sock,Packet),
 	{noreply,P#dp{calln = P#dp.calln + 1,
-				callsininterval = P#dp.callsininterval + 1}};
+		callsininterval = P#dp.callsininterval + 1}};
 handle_call(is_connected,_,P) ->
 	{reply,true,P};
 handle_call({print_info}, _, P) ->
@@ -243,6 +246,7 @@ handle_info({tcp_passive, _Socket},P) ->
 			{noreply,P}
 	end;
 handle_info({isolated,I},P) ->
+	lager:info("Isolation=~p, for con=~p, direction=~p",[I,P#dp.connected_to,P#dp.direction]),
 	{noreply,P#dp{isolated = I}};
 handle_info(restart,P) ->
 	% lager:info("Restarting tunnel process ~p",[{P#dp.connected_to,P#dp.iteration}]),
