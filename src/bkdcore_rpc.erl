@@ -175,7 +175,7 @@ handle_call(_Msg,_,#dp{direction = sender, isolated = true} = P) ->
 handle_call({call,permanent},_,P) ->
 	{reply,ok,P#dp{permanent = true}};
 handle_call({call,Msg},From,P) ->
-	Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
+	Bin = term_to_binary({From,Msg},[{minor_version,1}]),
 	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount + 1});
 handle_call({reply,Bin},From,P) ->
 	handle_call({sendbin,Bin},From,P#dp{callcount = P#dp.callcount - 1});
@@ -200,7 +200,7 @@ handle_call(stop, _, P) ->
 	{stop, shutdown, stopped, P}.
 
 handle_cast({call,From,Msg},P) ->
-	Bin = term_to_binary({From,Msg},[compressed,{minor_version,1}]),
+	Bin = term_to_binary({From,Msg},[{minor_version,1}]),
 	case handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1}) of
 		{reply,Err,NP} ->
 			gen_server:reply(From,Err),
@@ -209,7 +209,7 @@ handle_cast({call,From,Msg},P) ->
 			{noreply,NP}
 	end;
 handle_cast({cast,Msg},P) ->
-	Bin = term_to_binary({undefined,Msg},[compressed,{minor_version,1}]),
+	Bin = term_to_binary({undefined,Msg},[{minor_version,1}]),
 	case handle_call({sendbin,Bin},undefined,P#dp{callcount = P#dp.callcount + 1}) of
 		{reply,_,NP} ->
 			{noreply,NP};
@@ -479,7 +479,7 @@ exec(true,Home,Msg) ->
 			ok;
 		{From,_} ->
 			?ERR("Replying erorr closed! on ~p",[From]),
-			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,{error,econnrefused}}},[compressed,{minor_version,1}])})
+			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,{error,econnrefused}}},[{minor_version,1}])})
 	end;
 exec(_,Home,Msg) ->
 	case binary_to_term(Msg) of
@@ -499,14 +499,14 @@ exec(_,Home,Msg) ->
 					% 	_ ->
 					% 		ok
 					% end,
-					gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,X}},[compressed,{minor_version,1}])});
+					gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,X}},[{minor_version,1}])});
 				_ ->
 					ok
 			end;
 		{From,ping} ->
-			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,pong}},[compressed,{minor_version,1}])});
+			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,pong}},[{minor_version,1}])});
 		{From,What} ->
-			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,{module_not_alowed,What}}},[compressed,{minor_version,1}])})
+			gen_server:call(Home,{reply,term_to_binary({rpcreply,{From,{module_not_alowed,What}}},[{minor_version,1}])})
 	end.
 
 
