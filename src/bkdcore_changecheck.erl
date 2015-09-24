@@ -799,8 +799,14 @@ insert_groups_to_ets([_|_] = Groups) ->
 				Name = butil:toatom(Name1),
 				% butil:ds_add({lastchange,Name},Now,bkdcore_groups),
 				% butil:ds_add({nodes,Name},Nodes,bkdcore_groups),
-				case Type of
-					cluster ->
+				case application:get_env(bkdcore,cluster_types) of
+					{ok,ClusterTypes} ->
+						ok;
+					_ ->
+						ClusterTypes = [cluster]
+				end,
+				case lists:member(Type,ClusterTypes) of
+					true ->
 						ClusterNodes = [{{cluster_group,Node},Name} || Node <- Nodes];
 					_ ->
 						ClusterNodes = []

@@ -32,6 +32,14 @@ save_opts([{cfg,Name,Opts}|T]) ->
 			application:set_env(bkdcore,cfgfiles,[{Name,Opts}|L])
 	end,
 	save_opts(T);
+save_opts([{cluster_types,L}|T]) ->
+	case application:get_env(bkdcore,cluster_types) of
+		undefined ->
+			application:set_env(bkdcore,cluster_types,L);
+		{ok,L1} ->
+			application:set_env(bkdcore,cluster_types,L++L1)
+	end,
+	save_opts(T);
 save_opts([_|T]) ->
 	save_opts(T);
 save_opts([]) ->
