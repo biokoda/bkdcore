@@ -5,6 +5,6 @@
             ]},
   {registered, [bkdcore_sup,bkdcore_rpc,bkdcore_mochi,bkdcore_task,bkdcore_geoip,bkdcore_cache,bkdcore_sharedstate,bkdcore_idgen]},
   {mod, {bkdcore_app, []}},
-  {applications, [kernel,stdlib,yamerl]},
+  {applications, [kernel,stdlib,yamerl,lager]},
   {start_phases,[]}
  ]}.

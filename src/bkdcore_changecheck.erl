@@ -830,7 +830,7 @@ insert_groups_to_ets([_|_] = Groups) ->
 			butil:ds_add(TypesToInsert++ToInsert1,bkdcore_groups),
 			% For every group that has not been updated (it was removed from file) take name and type
 			Todelete = [{Name,butil:ds_val({type,Name},bkdcore_groups)} || 
-													{{lastchange,Name},LC} <- ets:tab2list(bkdcore_groups), LC /= Now],
+				{{lastchange,Name},LC} <- ets:tab2list(bkdcore_groups), LC /= Now],
 			[begin
 				% Remove all {Key,GroupName} from ets
 				[butil:ds_rem({K,Name1},bkdcore_groups) || {{K,Name1},_} <- ets:tab2list(bkdcore_groups),Name1 == Name],
