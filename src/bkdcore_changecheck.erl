@@ -648,24 +648,6 @@ parseaddress(Addr1,Port1) ->
 	end,
 	{Address,Port}.
 
-% wait_for_setup(0) ->
-% 	exit(timeout);
-% wait_for_setup(N) ->
-% 	case bkdcore_sharedstate:is_ok() of
-% 		true ->
-% 			ok;
-% 		false ->
-% 			timer:sleep(1000),
-% 			wait_for_setup(N-1)
-% 	end.
-
-% startapps() ->
-% 	case application:get_env(bkdcore,startapps) of
-% 		{ok,L} ->
-% 			[spawn(fun() -> wait_for_setup(10), application:start(App,permanent) end) || App <- L];
-% 		_X ->
-% 			ok
-% 	end.
 
 set_nodes_groups(N,G) ->
 	lager:info("Setting nodes groups ~p",[{N,G}]),
