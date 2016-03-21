@@ -120,7 +120,8 @@ async_call(Ref,Node,Msg) ->
 cast(Node,Msg) ->
 	case getpid(Node) of
 		Pid when is_pid(Pid) ->
-			Pid ! {call,undefined,term_to_binary({undefined,Msg},[{minor_version,1}])};
+			Pid ! {call,undefined,term_to_binary({undefined,Msg},[{minor_version,1}])},
+			ok;
 			% gen_server:cast(Pid,{cast,Msg});
 		Err ->
 			Err
@@ -595,7 +596,7 @@ exec(E,Msg) ->
 				Mod /= io, Mod /= os, Mod /= erlang, Mod /= code ->
 			% Start = os:timestamp(),
 			case catch apply(Mod,Func,Param) of
-				X -> %when From /= undefined ->
+				X when From /= undefined ->
 					% Stop = os:timestamp(),
 					% Diff = timer:now_diff(Stop,Start),
 					% case Diff > 10000 of
@@ -604,9 +605,9 @@ exec(E,Msg) ->
 					% 	_ ->
 					% 		ok
 					% end,
-					E#executor.home ! {reply,E,term_to_binary({rpcreply,{From,X}},[{minor_version,1}])}
-				% _ ->
-				% 	ok
+					E#executor.home ! {reply,E,term_to_binary({rpcreply,{From,X}},[{minor_version,1}])};
+				_ ->
+					E#executor.home ! {decr_callcount,E}
 			end;
 		{From,ping} ->
 			E#executor.home ! {reply,E,term_to_binary({rpcreply,{From,pong}},[{minor_version,1}])};
