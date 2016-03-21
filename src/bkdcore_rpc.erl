@@ -559,7 +559,8 @@ exec_gather1(Home) ->
 		{'DOWN',_Monitor,_,Home,_Reason} ->
 			ok;
 		X ->
-			?ERR("gather invalid msg ~p",[X])
+			?ERR("gather invalid msg ~p",[X]),
+			exec_gather1(Home)
 	after 1000 ->
 		erlang:hibernate(?MODULE, exec_gather1,[Home])
 	end.
@@ -567,7 +568,7 @@ exec_gather1(E,Sz,L) when Sz < E#executor.callsize ->
 	receive
 		{chunk,Chunk} ->
 			exec_gather1(E, Sz + byte_size(Chunk), [Chunk|L]);
-		{'DOWN',_Monitor,_,_Home,_Reason} ->
+		{'DOWN',_Monitor,_,Home,_Reason} when Home == E#executor.home ->
 			ok
 	end;
 exec_gather1(Ex,_,L) ->
