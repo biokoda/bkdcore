@@ -47,6 +47,6 @@ init([]) ->
 				 100,
 				 worker,
 				[bkdcore_cache]}
-		 ] ++ Shared ++ Mochi
+		 ] ++ Mochi
 	}}.
 
