@@ -564,8 +564,8 @@ exec_gather1(Home) ->
 			end;
 		{'DOWN',_Monitor,_,Home,_Reason} ->
 			ok;
-		X ->
-			?ERR("gather invalid msg ~p",[X]),
+		_ ->
+			% exec might produce messages. We no longer care about them.
 			exec_gather1(Home)
 	after 1000 ->
 		erlang:hibernate(?MODULE, exec_gather1,[Home])
