@@ -283,8 +283,10 @@ loop(#dp{direction = tunnel, isolated = true} = P) ->
 	receive
 		{tcp,_S,_Bin} ->
 			loop(P);
-		{isolated,_Nd,I} ->
+		{isolated,Nd,I} when P#dp.connected_to == Nd ->
 			loop(P#dp{isolated = I});
+		{isolated,_,_} ->
+			loop(P);
 		{isolated,I} ->
 			loop(P#dp{isolated = I})
 	end;
@@ -307,9 +309,11 @@ loop(#dp{direction = tunnel} = P) ->
 			% end;
 		{tcp_closed,_} ->
 			ok;
-		{isolated,_Nd,I} ->
+		{isolated,Nd,I} when P#dp.connected_to == Nd ->
 			lager:info("Isolation=~p, for con=~p, direction=~p",[I,P#dp.connected_to,P#dp.direction]),
-			P#dp{isolated = I};
+			loop(P#dp{isolated = I});
+		{isolated,_,_} ->
+			loop(P);
 		{isolated,I} ->
 			lager:info("Isolation=~p, for con=~p, direction=~p",
 				[I,P#dp.connected_to,P#dp.direction]),
@@ -397,9 +401,11 @@ loop(P, ToSend, HaveSent, Timeout) ->
 			_ ->
 				loop(P, ToSend, HaveSent, 0)
 		end;
-	{isolated,_Nd,I} ->
+	{isolated,Nd,I} when Nd == P#dp.connected_to ->
 		lager:info("Isolation=~p, for con=~p, direction=~p",[I,P#dp.connected_to,P#dp.direction]),
 		loop(P#dp{isolated = I}, ToSend, HaveSent, 0);
+	{isolated,_,_} ->
+		loop(P, ToSend, HaveSent, 0);
 	{isolated,I} ->
 		lager:info("Isolation=~p, for con=~p, direction=~p",
 			[I,P#dp.connected_to,P#dp.direction]),
