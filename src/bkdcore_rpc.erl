@@ -6,7 +6,7 @@
 -include("bkdcore.hrl").
 -compile([{parse_transform, lager_transform}]).
 % API
--export([call/2,cast/2,async_call/3,multicall/2,is_connected/1,isolate/1, isolate_from/2,stop/1]).
+-export([call/2,cast/2,async_call/3,multicall/2,multicall/3,is_connected/1,isolate/1, isolate_from/2,stop/1]).
 % gen_server
 % -export([start/0,start/1,start/2, stop/1,stop/0, init/1, handle_call/3,
 % 		  handle_cast/2, handle_info/2, terminate/2, code_change/3,t/0]).
@@ -78,8 +78,9 @@ is_connected(Node) ->
 	end,
 	Res == true.
 
-
-multicall(Nodes,Msg) when is_list(Nodes) ->
+multicall(Nodes,Msg) ->
+	multicall(Nodes,Msg,1000*60*5).
+multicall(Nodes,Msg,MaxTime) when is_list(Nodes) ->
 	Ref = make_ref(),
 	{NumCalls,Errs} = lists:foldl(fun(Nd,{Count,Errors}) ->
 		case async_call(Ref,Nd,Msg) of
@@ -88,18 +89,29 @@ multicall(Nodes,Msg) when is_list(Nodes) ->
 			_Ret ->
 				{Count+1,Errors}
 		end
-	 end,{0,[]},Nodes),
-	multicall(NumCalls,Ref,[],Errs).
-multicall(0,_,Results,BadNodes) ->
+	end,{0,[]},Nodes),
+	StartTime = erlang:monotonic_time(),
+	% erlang:convert_time_unit(AfterT-BeforeT, native, nano_seconds)
+	multicall(NumCalls,Ref,[],Errs,StartTime,MaxTime).
+
+multicall(0,_,Results,BadNodes,_StartTime,_MaxTime) ->
 	{Results,BadNodes};
-multicall(Count,Ref,Results,Bad) ->
-	receive
-		{{Ref,MonRef,Nd},{error,econnrefused}} ->
-			erlang:demonitor(MonRef,[flush]),
-			multicall(Count-1,Ref,Results,[Nd|Bad]);
-		{{Ref,MonRef,_Nd},Res} ->
-			erlang:demonitor(MonRef,[flush]),
-			multicall(Count-1,Ref,[Res|Results],Bad)
+multicall(Count,Ref,Results,Bad,StartTime,MaxTime) ->
+	Now = erlang:monotonic_time(),
+	case erlang:convert_time_unit(Now-StartTime, native, milli_seconds) of
+		Diff when Diff >= MaxTime ->
+			{Results,Bad};
+		_ ->
+			receive
+				{{Ref,MonRef,Nd},{error,econnrefused}} ->
+					erlang:demonitor(MonRef,[flush]),
+					multicall(Count-1,Ref,Results,[Nd|Bad],StartTime,MaxTime);
+				{{Ref,MonRef,_Nd},Res} ->
+					erlang:demonitor(MonRef,[flush]),
+					multicall(Count-1,Ref,[Res|Results],Bad,StartTime,MaxTime)
+			after 20 ->
+				multicall(Count,Ref,Results,Bad,StartTime,MaxTime)
+			end
 	end.
 
 
