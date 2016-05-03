@@ -40,12 +40,29 @@
 update_db(Path) ->
 	gen_server:cast(?MODULE,{update, Path}).
 
-lookup(IP) ->
-	case gen_server:call(?MODULE,{lookup,butil:ip_to_int(IP)}) of
+lookup(IP) when is_integer(IP) ->
+	case gen_server:call(?MODULE,{lookup,IP}) of
 		false ->
 			false;
 		Index ->
 			element(Index, ?COUNTRIES)
+	end;
+lookup(IP) when is_list(IP); is_binary(IP) ->
+	case lookup(butil:ip_to_int(IP)) of
+		false ->
+			case string:tokens(butil:tolist(IP),":") of
+				["2002",[A1,A2,B1,B2],[C1,C2,D1,D2]|_] ->
+					<<A>> = butil:hex2dec([A1,A2]),
+					<<B>> = butil:hex2dec([B1,B2]),
+					<<C>> = butil:hex2dec([C1,C2]),
+					<<D>> = butil:hex2dec([D1,D2]),
+					<<N:32/integer-unsigned>> = <<A,B,C,D>>,
+					lookup(N);
+				_ ->
+					false
+			end;
+		R ->
+			R
 	end.
 
 -record(gip, {tree, countries, ipv4time = 0,ipv6time = 0}).
