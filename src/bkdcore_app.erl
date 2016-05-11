@@ -17,9 +17,7 @@ init() ->
 start(_Type, _Args) ->
 	application:start(asn1),
 	application:start(distreg),
-	application:start(yamerl),
 	application:ensure_all_started(crypto),
-	butil:wait_for_app(yamerl),
 	Params = [begin
 			case application:get_env(bkdcore,K) of
 				{ok,V} ->
