@@ -466,23 +466,12 @@ reload(Path,Name,Op) ->
 	end.
 
 setcfg(Name) ->
-	case filename:extension(Name) of
-		".yaml" ->
-			case catch yamerl_constr:file(Name) of
-				[Cfg] ->
-					setcfg(Name,Cfg);
-				_Err ->
-					lager:info("Cfg failed to consult ~p~n", [_Err]),
-					false
-			end;
-		_ ->
-			case catch file:consult(Name) of
-				{ok, [[_|_] = Cfg]} ->
-					setcfg(Name,Cfg);
-				_Err ->
-					lager:info("Cfg failed to consult ~p~n", [_Err]),
-					false
-			end
+	case catch file:consult(Name) of
+		{ok, [[_|_] = Cfg]} ->
+			setcfg(Name,Cfg);
+		_Err ->
+			lager:info("Cfg failed to consult ~p~n", [_Err]),
+			false
 	end.
 setcfg(Name,Obj) ->
 	F = fun() ->
@@ -669,34 +658,12 @@ set_nodes_groups(N,G) ->
 		end.
 
 insert_nodes_to_ets([Char|_] = Path) when is_integer(Char) ->
-	case filename:extension(Path) of
-		".yaml" ->
-			case catch yamerl_constr:file(Path) of
-				[[A1,A2]] ->
-					case A1 of
-						{"nodes",Nodes} ->
-							{"groups",Groups} = A2,
-							{Nodes,Groups};
-						{"groups",Groups} ->
-							{"nodes",Nodes} = A2,
-							{Nodes,Groups}
-					end,
-					insert_nodes_to_ets(Nodes),
-					insert_groups_to_ets(parse_yaml_groups(Groups));
-				[Nodes] ->
-					insert_nodes_to_ets(Nodes);	
-				Err ->
-					lager:info("Unable to load nodes ~p ~p",[Err,Path]),
-					false
-			end;
-		_ ->
-			case file:consult(Path) of
-				{ok,[Nodes]} ->
-					insert_nodes_to_ets(Nodes);
-				Err ->
-					lager:info("Unable to load nodes ~p ~p~n", [Err,Path]),
-					false
-			end
+	case file:consult(Path) of
+		{ok,[Nodes]} ->
+			insert_nodes_to_ets(Nodes);
+		Err ->
+			lager:info("Unable to load nodes ~p ~p~n", [Err,Path]),
+			false
 	end;
 insert_nodes_to_ets([_|_] = Nodes) ->
 	Nodesbin = term_to_binary(Nodes),
@@ -740,23 +707,12 @@ parse_yaml_groups(Groups) ->
 	   butil:ds_val(properties,G,[])} || G <- Groups].
 
 insert_groups_to_ets([Char|_] = Path) when is_integer(Char) ->
-	case filename:extension(Path) of
-		".yaml" ->
-			case catch yamerl_constr:file(Path) of
-				[Groups] ->
-					insert_groups_to_ets(parse_yaml_groups(Groups));
-				Err ->
-					lager:info("Unable to load nodes ~p ~p~n",[Err,Path]),
-					false
-			end;
-		_ ->
-			case file:consult(Path) of
-				{ok,[Groups]} ->
-					insert_groups_to_ets(Groups);
-				Err ->
-					lager:info("Unable to load groups file: ~p~n", [Err]),
-					false
-			end
+	case file:consult(Path) of
+		{ok,[Groups]} ->
+			insert_groups_to_ets(Groups);
+		Err ->
+			lager:info("Unable to load groups file: ~p~n", [Err]),
+			false
 	end;
 insert_groups_to_ets([_|_] = Groups) ->
 	Groupsbin = term_to_binary(Groups),
