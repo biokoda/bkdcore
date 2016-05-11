@@ -199,7 +199,7 @@ update_csv(Url) ->
 	end || {Name,Bin} <- L].
 
 
-find_ip({Min, Max, Country, _Left, _Right}, IP) when IP > Min, IP < Max ->
+find_ip({Min, Max, Country, _Left, _Right}, IP) when IP >= Min, IP =< Max ->
 	Country;
 find_ip({_Min, Max, _Country, _Left, Right}, IP) when IP >= Max ->
 	find_ip(Right, IP);
