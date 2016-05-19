@@ -2840,10 +2840,8 @@ ip_to_tuple(<<_Int:16/binary>> = IP) ->
 	E:16/unsigned,F:16/unsigned,G:16/unsigned,H:16/unsigned>> = IP,
 	{A,B,C,D,E,F,G,H};
 ip_to_tuple(IP) when is_list(IP); is_binary(IP) ->
-	case string:tokens(tolist(IP),".") of
-		[_|_] = L ->
-			list_to_tuple([toint(X) || X <- L])
-	end;
+	{ok,O} = inet_parse:address(tolist(IP)),
+	O;
 ip_to_tuple(IP) when is_integer(IP) ->
 	ip_to_tuple(int_to_ip(IP));
 ip_to_tuple(IP) when is_tuple(IP) ->
