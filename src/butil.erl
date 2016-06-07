@@ -2813,14 +2813,8 @@ replicate(N,X,L) ->
 
 to_ip({A,B,C,D}) ->
 	lists:concat([A,".",B,".",C,".",D]);
-to_ip({A,B,C,D,E,F,G,H}) ->
-	Nums = [case N > 0 of
-		true ->
-			erlang:integer_to_list(N,16);
-		false ->
-			""
-	end || N <- [A,B,C,D,E,F,G,H]],
-	string:to_lower(string:join(Nums,":"));
+to_ip(T) when tuple_size(T) == 8 ->
+	inet_parse:ntoa(T);
 to_ip(L) when is_integer(L) ->
 	int_to_ip(L);
 to_ip(L) ->
