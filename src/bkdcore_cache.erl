@@ -11,7 +11,6 @@
 % -define(DEBUG,true).
 -include_lib("../include/bkdcore.hrl").
 
--compile([{parse_transform, lager_transform}]).
 
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
