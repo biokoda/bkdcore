@@ -104,6 +104,8 @@ json_encode(F, _State) when is_float(F) ->
     bmochinum:digits(F);
 json_encode(S, State) when is_binary(S); is_atom(S); S == [] ->
     json_encode_string(S, State);
+json_encode(Map, State) when is_map(Map) ->
+    json_encode_proplist(maps:to_list(Map), State);
 json_encode([{K,_}|_] = Props, State) when K /= struct ->
     json_encode_proplist(Props, State);
 json_encode({struct, Props}, State) when is_list(Props) ->
