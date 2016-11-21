@@ -272,6 +272,7 @@ init([From,Node]) ->
 % tunnel loop
 loop(#dp{direction = receiver, isinit = false} = P) ->
 	Key = bkdcore:rpccookie(),
+	inet:setopts(P#dp.sock,[{active, once}]),
 	receive
 		{tcp,S,<<Key:40/binary,Rem/binary>>} ->
 			case Rem of
@@ -281,14 +282,15 @@ loop(#dp{direction = receiver, isinit = false} = P) ->
 				<<"tunnel,",Mod1/binary>> ->
 					inet:setopts(P#dp.sock,[{active, 32}]),
 					[From,Mod] = butil:split_first(Mod1,<<",">>),
-					ok = gen_tcp:send(S,<<"ok">>),
 					lager:debug("Started tunnel from ~p",[From]),
+					ok = gen_tcp:send(S,<<"ok">>),
 					loop(P#dp{direction = tunnel, isinit = true, permanent = true, connected_to = From,
 						tunnelmod = binary_to_existing_atom(Mod,latin1)})
 			end;
-		{tcp,_,_} ->
+		{tcp,_,_B} ->
 			ok
-		after 1000 ->
+		after 2000 ->
+			lager:error("Timeout init rpc connection"),
 			timeout
 	end;
 loop(#dp{direction = tunnel, isolated = true} = P) ->
