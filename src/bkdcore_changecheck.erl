@@ -7,9 +7,12 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([make/0,startup_node/0,folders/0,is_valid_path/1,read_node/1,set_nodes_groups/2,
 		 insert_nodes_to_ets/1,insert_groups_to_ets/1,setcfg/1,setcfg/2,
-		 parse_yaml_groups/1]).
+		 parse_yaml_groups/1,add_extra_path/2]).
 -include_lib("kernel/include/file.hrl").
 -compile([{parse_transform, lager_transform}]).
+
+add_extra_path(Pth,MFA) ->
+	gen_server:call(?MODULE,{add_extra_path,Pth,MFA}).
 
 print_info() ->
 	gen_server:cast(?MODULE,{print_info}).
