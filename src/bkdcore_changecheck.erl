@@ -25,10 +25,12 @@ reload() ->
 
 
 
--record(cdat, {dict,paths = [], dist_dir = [],fswatcher}).
+-record(cdat, {dict,paths = [], dist_dir = [],fswatcher, extra_paths = []}).
 -define(R2P(Record), butil:rec2prop(Record, record_info(fields, cdat))).
 -define(P2R(Prop), butil:prop2rec(Prop, cdat, #cdat{}, record_info(fields, cdat))).
-	
+
+handle_call({add_extra_path,Pth,MFA},_,P) -> 
+	{reply,ok,P#cdat{extra_paths = [{Pth,MFA}|P#cdat.extra_paths]}};
 handle_call(stop, _, P) ->
 	{stop, shutdown, stopped, P};
 handle_call({reload_module}, _, P) ->
@@ -70,7 +72,14 @@ is_valid_path(P) ->
 handle_info({_, {data, Pathbin}},P) ->
 	Paths = [butil:tolist(X) || X <- binary:split(Pathbin,<<"\r\n">>,[global,trim])],
 	{ok,Dict} = traverse_paths(P#cdat.dict,[butil:tolist(X) || X <- Paths, is_valid_path(X)], change_check),
-	{noreply,P#cdat{dict = Dict}};
+	case catch traverse_extra_paths(Dict,P#cdat.extra_paths) of 
+		{ok,Dict1} -> 
+			ok; 
+		Err1 -> 
+			Dict1 = Dict,
+			io:format("Traversing extra paths crashed ~p~n",[Err1]) 
+	end,
+	{noreply,P#cdat{dict = Dict1}};
 handle_info({check_changes}, #cdat{fswatcher = undefined} = P) ->
 	case butil:ds_size(P#cdat.dict) of
 		0 ->
@@ -100,7 +109,14 @@ handle_info({check_changes}, #cdat{fswatcher = undefined} = P) ->
 			Dict = P#cdat.dict,
 			lager:info("Traversing folders crashed ~p", [Err])
 	end,
-	{noreply, P#cdat{dict = Dict}};
+	case catch traverse_extra_paths(Dict,P#cdat.extra_paths) of
+		{ok,Dict1} ->
+			ok; 
+		Err1 ->
+			Dict1 = Dict,
+			io:format("Traversing extra paths crashed ~p~n",[Err1]) 
+	end,
+	{noreply, P#cdat{dict = Dict1}};
 handle_info(_X, State) -> 
 	{noreply, State}.
 
@@ -154,6 +170,43 @@ init(_) ->
 have_fswatcher() ->
 	filelib:is_regular(butil:project_rootpath() ++ "/priv/fswatcher").
 
+traverse_extra_paths(D,{Pth,MFA}) ->
+	traverse_extra_paths(D,[{Pth,MFA}]);
+traverse_extra_paths(D,[{Pth,MFA}|T]) ->
+	{ok,L} = file:list_dir(Pth),
+	{ok,ND} = traverse_extra_paths(D,Pth,MFA,L),
+	traverse_extra_paths(ND,T);
+traverse_extra_paths(D,[]) ->
+	{ok,D}.
+traverse_extra_paths(D,Pth,MFA,["."++_|T]) ->
+	traverse_extra_paths(D,Pth,MFA,T);
+traverse_extra_paths(D,Pth,MFA,[H|T]) ->
+	Nm = [Pth,"/",H],
+	case file:read_file_info(Nm) of
+		{ok,I} when I#file_info.type == directory ->
+			{ok,D1} = traverse_extra_paths(D,{Nm,MFA}),
+			traverse_extra_paths(D1,Pth,MFA,T);
+		{ok,I} ->
+			PrevTime = butil:ds_val(Nm,D),
+			case lists:member(tl(filename:extension(H)),relevant_types()) of
+				true when PrevTime /= I#file_info.mtime ->
+					case erlang:localtime() == I#file_info.mtime of
+						true ->
+							timer:sleep(1000),
+							traverse_extra_paths(D,Pth,MFA,[H|T]);
+						false ->
+							{M,F,A} = MFA,
+							apply(M,F,[Nm|A]),
+							traverse_extra_paths(butil:ds_add(Nm,I#file_info.mtime,D),Pth,MFA,T)
+					end;
+				_  ->
+					traverse_extra_paths(D,Pth,MFA,T)
+			end;
+		_ ->
+			traverse_extra_paths(D,Pth,MFA,T)
+	end;
+traverse_extra_paths(D,_,_,[]) ->
+	{ok,D}.
 
 folders() ->
 	RootPath = butil:project_rootpath(),
