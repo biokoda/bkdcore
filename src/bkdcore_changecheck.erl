@@ -28,7 +28,7 @@ reload() ->
 
 
 
--record(cdat, {dict,paths = [], dist_dir = [],fswatcher, extra_paths = []}).
+-record(cdat, {dict,paths = [], dist_dir = [],fswatcher, extra_paths = [], rebar3 = false}).
 -define(R2P(Record), butil:rec2prop(Record, record_info(fields, cdat))).
 -define(P2R(Prop), butil:prop2rec(Prop, cdat, #cdat{}, record_info(fields, cdat))).
 
@@ -129,14 +129,22 @@ code_change(_, State, _) ->
 	{ok, State}.
 init(_) ->
 	filelib:ensure_dir(butil:project_rootpath() ++ "/priv/"),
+	Rebar3 = application:get_env(bkdcore,rebar3,false),
+	{_,_,MPath} = code:get_object_code(?MODULE),
+	PathParts = filename:split(MPath),
+	case Rebar3 of
+		true ->
+			[_,"ebin","bkdcore"|RLibDir] = lists:reverse(PathParts),
+			application:set_env(bkdcore,libdir,filename:join(lists:reverse(RLibDir)));
+		_ ->
+			ok
+	end,
 	% If autoload_files not set, check if bkdcore is in "lib" directory. 
 	% If it is set autoload_files to false. "lib" directory is only in deployed mode.
 	case application:get_env(bkdcore,autoload_files) of
 		undefined ->
-			{_,_,Path} = code:get_object_code(?MODULE),
-			PathParts = filename:split(Path),
 			case lists:reverse(PathParts) of
-				[_,"ebin",_,"lib"|_] ->
+				[_,"ebin",_,"lib"|_] when Rebar3 == false ->
 					Autoload = false,
 					application:set_env(bkdcore,autoload_files,false);
 				_ ->
@@ -160,7 +168,7 @@ init(_) ->
 	end,
 	RootPath = butil:project_rootpath(),
 	Paths = folders(),
-	{_,P} = handle_info({check_changes},#cdat{dict = butil:ds_new(dict), paths = Paths, dist_dir = RootPath ++ "/priv/code_dist"}),
+	{_,P} = handle_info({check_changes},#cdat{rebar3 = Rebar3, dict = butil:ds_new(dict), paths = Paths, dist_dir = RootPath ++ "/priv/code_dist"}),
 
 	case have_fswatcher() andalso butil:get_os() == osx of
 		true ->
@@ -243,17 +251,23 @@ traverse_paths(Dict,[ApDep|T], Op) when ApDep == "deps"; ApDep == "apps" ->
 					L = [begin
 							case ApDep of
 								"deps" ->
+									case application:get_env(bkdcore,libdir) of
+										{ok,Rootpath} ->
+											ok;
+										_ ->
+											Rootpath = butil:project_rootpath()
+									end,
 									case application:get_env(autocompile) of
 										{ok,AppList}  ->
 											case lists:member(X,AppList) of
 												true ->
-													[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/src"]),
-													lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"])];
+													[lists:concat([Rootpath,"/",ApDep,"/",X,"/src"]),
+													lists:concat([Rootpath,"/",ApDep,"/",X,"/ebin"])];
 												false ->
-													[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"])]
+													[lists:concat([Rootpath,"/",ApDep,"/",X,"/ebin"])]
 											end;
 										_ ->
-											[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"])]
+											[lists:concat([Rootpath,"/",ApDep,"/",X,"/ebin"])]
 									end;
 								_ ->
 									[lists:concat([butil:project_rootpath(),"/",ApDep,"/",X,"/ebin"]),
@@ -387,8 +401,16 @@ reload(Path,Name,Op) ->
 				first ->
 					ok;
 				_ ->					
-					lager:info("DTL changed ~p~n", [Path ++ "/" ++ Root]),
-					EbinPath = filename:join(lists:reverse(tl(lists:reverse(filename:split(Path)))))++"/ebin/",
+					case application:get_env(bkdcore,libdir) of
+						{ok,Rootpath} ->
+							AppWildcard = filename:join(lists:reverse(tl(lists:reverse(filename:split(Path)))))++"/src/*.app.src",
+							[AppAll|_] = filelib:wildcard(AppWildcard),
+							App = filename:rootname(filename:rootname(filename:basename(AppAll))),
+							EbinPath = filename:join([Rootpath,App,"ebin"]);
+						_ ->
+							EbinPath = filename:join(lists:reverse(tl(lists:reverse(filename:split(Path)))))++"/ebin/"
+					end,
+					lager:info("DTL changed ~p, saving to=~p~n", [Path ++ "/" ++ Root,EbinPath]),
 					filelib:ensure_dir(EbinPath),
 					case erlydtl:compile(Path ++ "/" ++ Name, list_to_atom(Root),
 									[{out_dir,EbinPath}]) of
@@ -421,12 +443,20 @@ reload(Path,Name,Op) ->
 		["erl"|[Root]] when (Name /= "bkdcore_changecheck.erl" orelse Op == make) andalso Docompile 
 												andalso Op /= first andalso Op /= startupnode -> 
 			Rewrite = fun(Bin) ->
-								EbinPath = [filename:join(lists:reverse(tl(lists:reverse(filename:split(Path))))),"/ebin/",Root,".beam"],
-								filelib:ensure_dir(EbinPath),
-								file:write_file(EbinPath,Bin),
-								{ok, I} = file:read_file_info(EbinPath),
-								gen_server:cast(?MODULE,{save_to_dict,{Root ++ ".beam",I#file_info.mtime}})
-					  end,
+				case application:get_env(bkdcore,libdir) of
+					{ok,Rootpath} ->
+						AppWildcard = Path++"/*.app.src",
+						[AppAll|_] = filelib:wildcard(AppWildcard),
+						App = filename:rootname(filename:rootname(filename:basename(AppAll))),
+						EbinPath = filename:join([Rootpath,App,"ebin",Root++".beam"]);
+					_ ->
+						EbinPath = [filename:join(lists:reverse(tl(lists:reverse(filename:split(Path))))),"/ebin/",Root,".beam"]
+				end,
+				filelib:ensure_dir(EbinPath),
+				file:write_file(EbinPath,Bin),
+				{ok, I} = file:read_file_info(EbinPath),
+				gen_server:cast(?MODULE,{save_to_dict,{Root ++ ".beam",I#file_info.mtime}})
+			end,
 			lager:info("Recompiling erl ~p~n", [Name]),
 			case application:get_env(bkdcore,compileopts) of
 				{ok,CompileOpts} ->

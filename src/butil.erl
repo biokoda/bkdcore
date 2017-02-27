@@ -905,6 +905,8 @@ project_rootpath() ->
 			{_,_,Path} = code:get_object_code(?MODULE),
 			PathParts = filename:split(Path),
 			F = case lists:reverse(PathParts) of
+				[_,"ebin",_,"lib",_,"_build"|Rem] ->
+					filename:join(lists:reverse(Rem));
 				[_,"ebin",_,"apps"|Rem] ->
 					filename:join(lists:reverse(Rem));
 				[_,"ebin",_,"deps"|Rem] ->
