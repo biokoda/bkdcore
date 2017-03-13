@@ -270,9 +270,9 @@ traverse_paths(Dict,[ApDep|T], Op) when ApDep == "deps"; ApDep == "apps" ->
 											[lists:concat([Rootpath,"/",X,"/ebin"])]
 									end;
 								_ ->
-									[lists:concat([butil:project_rootpath(),"/",X,"/ebin"]),
-								 		lists:concat([butil:project_rootpath(),"/",X,"/src"]),
-							 		lists:concat([butil:project_rootpath(),"/",X,"/dtl"])]
+									[lists:concat([Rootpath,"/",X,"/ebin"]),
+								 		lists:concat([Rootpath,"/",X,"/src"]),
+							 		lists:concat([Rootpath,"/",X,"/dtl"])]
 							 end
 						end || X <- L1, hd(X) /= $.],
 						% io:format("~p~n",[L]),
