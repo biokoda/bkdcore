@@ -3080,7 +3080,7 @@ ds_add({A,K},V,application) ->
 	application:set_env(A,K,V);
 ds_add(K,V,M) when is_map(M) ->
 	maps:put(K,V,M);
-ds_add(K,V,T) when is_integer(T); is_atom(T) ->
+ds_add(K,V,T) when is_integer(T); is_atom(T); is_reference(T) ->
 	ets:insert(T,{K,V}),
 	T.
 
@@ -3091,7 +3091,7 @@ ds_add(V,T) when is_tuple(T) ->
 		set ->
 			sets:add_element(V,T)
 	end;
-ds_add(V,T) when is_integer(T); is_atom(T) ->
+ds_add(V,T) when is_integer(T); is_atom(T); is_reference(T) ->
 	ets:insert(T,V),
 	T.
 
@@ -3168,7 +3168,7 @@ ds_val({A,K},application) ->
 	end;
 ds_val(K,M) when is_map(M) ->
 	maps:get(K,M);
-ds_val(K,T) when is_integer(T); is_atom(T) ->
+ds_val(K,T) when is_integer(T); is_atom(T); is_reference(T) ->
 	case ets:lookup(T,K) of
 		[{_,V}] ->
 			V;
@@ -3205,7 +3205,7 @@ ds_size(T) when is_tuple(T) ->
 	end;
 ds_size(M) when is_map(M) ->
 	maps:size(M);
-ds_size(T) when is_integer(T); is_atom(T) ->
+ds_size(T) when is_integer(T); is_atom(T); is_reference(T) ->
 	ets:info(T,size).
 
 ds_tolist(procdict) ->
@@ -3225,7 +3225,7 @@ ds_tolist(T) when is_tuple(T) ->
 	end;
 ds_tolist(M) when is_map(M) ->
 	maps:to_list(M);
-ds_tolist(T) when is_integer(T); is_atom(T) ->
+ds_tolist(T) when is_integer(T); is_atom(T); is_reference(T) ->
 	ets:tab2list(T).
 
 ds_vals(Keys,DS) ->
