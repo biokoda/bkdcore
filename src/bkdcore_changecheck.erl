@@ -22,7 +22,7 @@ start() ->
 
 stop() ->
 	gen_server:call(?MODULE, stop).
-	
+
 reload() ->
 	gen_server:call(?MODULE, {reload_module}).
 
@@ -32,7 +32,7 @@ reload() ->
 -define(R2P(Record), butil:rec2prop(Record, record_info(fields, cdat))).
 -define(P2R(Prop), butil:prop2rec(Prop, cdat, #cdat{}, record_info(fields, cdat))).
 
-handle_call({add_extra_path,Pth,MFA},_,P) -> 
+handle_call({add_extra_path,Pth,MFA},_,P) ->
 	{reply,ok,P#cdat{extra_paths = [{Pth,MFA}|P#cdat.extra_paths]}};
 handle_call(stop, _, P) ->
 	{stop, shutdown, stopped, P};
@@ -45,7 +45,7 @@ handle_call(_, _, P) ->
 
 deser_prop(P) ->
 	?P2R(P).
-	 
+
 handle_cast({save_to_dict,{Path,Time}},P) ->
 	{noreply,P#cdat{dict = butil:ds_add(Path,Time,P#cdat.dict)}};
 handle_cast(_X, P) ->
@@ -75,12 +75,12 @@ is_valid_path(P) ->
 handle_info({_, {data, Pathbin}},P) ->
 	Paths = [butil:tolist(X) || X <- binary:split(Pathbin,<<"\r\n">>,[global,trim])],
 	{ok,Dict} = traverse_paths(P#cdat.dict,[butil:tolist(X) || X <- Paths, is_valid_path(X)], change_check),
-	case catch traverse_extra_paths(Dict,P#cdat.extra_paths) of 
-		{ok,Dict1} -> 
-			ok; 
-		Err1 -> 
+	case catch traverse_extra_paths(Dict,P#cdat.extra_paths) of
+		{ok,Dict1} ->
+			ok;
+		Err1 ->
 			Dict1 = Dict,
-			io:format("Traversing extra paths crashed ~p~n",[Err1]) 
+			io:format("Traversing extra paths crashed ~p~n",[Err1])
 	end,
 	{noreply,P#cdat{dict = Dict1}};
 handle_info({check_changes}, #cdat{fswatcher = undefined} = P) ->
@@ -114,13 +114,13 @@ handle_info({check_changes}, #cdat{fswatcher = undefined} = P) ->
 	end,
 	case catch traverse_extra_paths(Dict,P#cdat.extra_paths) of
 		{ok,Dict1} ->
-			ok; 
+			ok;
 		Err1 ->
 			Dict1 = Dict,
-			io:format("Traversing extra paths crashed ~p~n",[Err1]) 
+			io:format("Traversing extra paths crashed ~p~n",[Err1])
 	end,
 	{noreply, P#cdat{dict = Dict1}};
-handle_info(_X, State) -> 
+handle_info(_X, State) ->
 	{noreply, State}.
 
 terminate(_, _) ->
@@ -139,7 +139,7 @@ init(_) ->
 		_ ->
 			ok
 	end,
-	% If autoload_files not set, check if bkdcore is in "lib" directory. 
+	% If autoload_files not set, check if bkdcore is in "lib" directory.
 	% If it is set autoload_files to false. "lib" directory is only in deployed mode.
 	case application:get_env(bkdcore,autoload_files) of
 		undefined ->
@@ -159,7 +159,7 @@ init(_) ->
 				false ->
 					ok;
 				true ->
-					lager:info("Compiling fswatcher~n"), 
+					lager:info("Compiling fswatcher~n"),
 					os:cmd("gcc -lobjc -framework CoreFoundation -framework CoreServices " ++butil:bkdcore_path()++"/c_src/fswatcher.m -o "++
 						  butil:project_rootpath()++"/priv/fswatcher")
 			end;
@@ -298,7 +298,7 @@ traverse_paths(Dict,[P|T], Op) ->
 	traverse_paths(NDict,T, Op);
 traverse_paths(Dict,[], _Op) ->
 	{ok,Dict}.
-	
+
 traverse_files(Dict,Path, ["." ++ _|T],Op) ->
 	traverse_files(Dict,Path, T,Op);
 traverse_files(Dict,Path, [H|T],Op) ->
@@ -358,7 +358,7 @@ traverse_files(Dict,_, [],_) ->
 
 relevant_types() ->
 	["beam","dtl","erl","hrl","json","nodes","groups","mime","cfg","config"].
-	
+
 reload(Path,Name,Op) ->
 	% lager:info("~p~n", [Name]),
 	FileParts = string:tokens(Name, "."),
@@ -401,7 +401,7 @@ reload(Path,Name,Op) ->
 			case Op of
 				first ->
 					ok;
-				_ ->					
+				_ ->
 					case application:get_env(bkdcore,libdir) of
 						{ok,Rootpath} ->
 							AppWildcard = filename:join(lists:reverse(tl(lists:reverse(filename:split(Path)))))++"/src/*.app.src",
@@ -441,8 +441,8 @@ reload(Path,Name,Op) ->
 							ok
 					end
 			end;
-		["erl"|[Root]] when (Name /= "bkdcore_changecheck.erl" orelse Op == make) andalso Docompile 
-												andalso Op /= first andalso Op /= startupnode -> 
+		["erl"|[Root]] when (Name /= "bkdcore_changecheck.erl" orelse Op == make) andalso Docompile
+												andalso Op /= first andalso Op /= startupnode ->
 			Rewrite = fun(Bin) ->
 				case application:get_env(bkdcore,libdir) of
 					{ok,Rootpath} ->
@@ -526,15 +526,15 @@ reload(Path,Name,Op) ->
 			lager:info("hrl changed, reloading name-matching files ~n"),
 			timer:sleep(1000),
 			[reload(Path,F,Op) || F <- filelib:wildcard(Root ++ "*.erl", Path)];
-		[Ext,Root]  when (Root == "allnodes" orelse Root == "nodes") andalso Op /= startupnode andalso 
+		[Ext,Root]  when (Root == "allnodes" orelse Root == "nodes") andalso Op /= startupnode andalso
 					 Op /= make andalso (Ext == "cfg" orelse Ext == "config" orelse Ext == "yaml") ->
 			lager:info("Nodes file ~p~n", [Op]),
 			insert_nodes_to_ets(Path ++ "/" ++ Name);
-		[Ext,Root] when (Root == "allgroups" orelse Root == "groups") andalso Op /= startupnode andalso 
+		[Ext,Root] when (Root == "allgroups" orelse Root == "groups") andalso Op /= startupnode andalso
 						Op /= make andalso (Ext == "cfg" orelse Ext == "config" orelse Ext == "yaml") ->
 			lager:info("Groups file ~p~n",[Op]),
 			insert_groups_to_ets(Path ++ "/" ++ Name);
-		[Ext,Root] when Op /= make andalso (Ext == "cfg" orelse Ext == "config" orelse "yaml") andalso 
+		[Ext,Root] when Op /= make andalso (Ext == "cfg" orelse Ext == "config" orelse "yaml") andalso
 											Root /= "allgroups" andalso Root /= "allnodes" ->
 			lager:info("Cfg changed ~p~n", [Path ++ "/" ++ Name]),
 			setcfg(Path++"/"++Name);
@@ -580,7 +580,7 @@ setcfg(Name,Obj) ->
 						ok
 				end,
 				% lager:info("Options for cfgfile ~p ~p~n",[Name,PresetCfg]),
-				[Autoload,Module1,TypeCallStr,OnLoad,Preload] = 
+				[Autoload,Module1,TypeCallStr,OnLoad,Preload] =
 						butil:ds_vals([autoload,mod,typeinfo,onload,preload],Obj,[true,"","","",""]),
 					case Autoload of
 						false ->
@@ -647,7 +647,7 @@ setcfg(Name,Obj) ->
 							end
 					end,
 					ok
-			end,	
+			end,
 	case catch F() of
 		ok ->
 			ok;
@@ -682,8 +682,15 @@ read_node(Nd) ->
 				[Namestr] ->
 					{butil:tobin(Nd),"127.0.0.1",44380,"127.0.0.1",butil:toatom(Namestr++"@127.0.0.1")};
 				[Namestr,Addr] ->
-					{Address,Port} = parseaddress(Addr,44380),
-					{butil:tobin(Namestr),Address,Port,Address,butil:toatom(Namestr++"@"++Address)}
+                    case string:tokens(Addr,",") of
+                        [Address2,Pub] ->
+                            ok;
+                        _ ->
+                            Pub = Addr,
+                            Address2 = Addr
+                    end,
+					{Address,Port} = parseaddress(Address2,44380),
+					{butil:tobin(Namestr),Address,Port,Pub,butil:toatom(Namestr++"@"++Address)}
 			end;
 		_ ->
 			[Name1,Addr1,Pub1,Port1] = butil:ds_vals([name,address,pubip,rpcport],Nd),
@@ -698,8 +705,8 @@ read_node(Nd) ->
 					end,
 					Dist = butil:toatom(Namestr++"@"++Address);
 				[Name,Address1] ->
-					{Address,Port} = parseaddress(Address1,Port1),
-					Dist = butil:toatom(Name++"@"++Address)
+                    {Address,Port} = parseaddress(Address1,Port1),
+                    Dist = butil:toatom(Name++"@"++Address)
 			end,
 			case Pub1 of
 				undefined ->
@@ -808,7 +815,7 @@ insert_groups_to_ets([_|_] = Groups) ->
 			ok;
 		_ ->
 			Now = butil:sec(),
-			{ToInsert1,TypesToInsert} = 
+			{ToInsert1,TypesToInsert} =
 			lists:foldl(fun(Group,{ToInsert,Types}) ->
 				% [Name1,Nodes,Index] = butil:ds_vals([<<"name">>,<<"nodes">>,<<"index">>],Grp),
 				case Group of
@@ -854,7 +861,7 @@ insert_groups_to_ets([_|_] = Groups) ->
 			end,{[],[]},Groups),
 			butil:ds_add(TypesToInsert++ToInsert1,bkdcore_groups),
 			% For every group that has not been updated (it was removed from file) take name and type
-			Todelete = [{Name,butil:ds_val({type,Name},bkdcore_groups)} || 
+			Todelete = [{Name,butil:ds_val({type,Name},bkdcore_groups)} ||
 				{{lastchange,Name},LC} <- ets:tab2list(bkdcore_groups), LC /= Now],
 			[begin
 				% Remove all {Key,GroupName} from ets
@@ -898,8 +905,3 @@ parsemime([H|T],L) ->
 	parsemime(T,Exl ++ L);
 parsemime([],L) ->
 	{ok,L}.
-
-
-
-
-	
