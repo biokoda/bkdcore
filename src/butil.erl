@@ -1089,6 +1089,8 @@ rfc3339(X) when is_list(X) ->
 	rfc3339(tobin(X));
 rfc3339(<<Year:4/binary, "-", Month:2/binary, "-", Day:2/binary, "T", Hour:2/binary,":",Min:2/binary,":",Sec:2/binary,_/binary>>) ->
 	{{toint(Year),toint(Month),toint(Day)},{toint(Hour),toint(Min),toint(Sec)}};
+rfc3339(<<Year:4/binary, "-", Month:2/binary, "-", Day:2/binary, "T", Hour:2/binary,":",Min:2/binary>>) ->
+	{{toint(Year),toint(Month),toint(Day)},{toint(Hour),toint(Min),0}};
 rfc3339(<<Year:4/binary, "-", Month:2/binary, "-", Day:2/binary>>) ->
 	{{toint(Year),toint(Month),toint(Day)},{toint(0),toint(0),toint(0)}};
 rfc3339({{Year, Month, Day}, {Hour, Min, Sec}}) ->
