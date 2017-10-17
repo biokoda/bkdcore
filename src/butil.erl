@@ -3496,6 +3496,8 @@ url(B1) ->
 			Ssl = false;
 		<<"https://",B/binary>> ->
 			Ssl = true;
+    <<"ftp://",B/binary>> ->
+      Ssl = ftp;
 		B ->
 			Ssl = false
 	end,
@@ -3506,7 +3508,9 @@ url(B1) ->
 							true ->
 								[Dom,443];
 							false ->
-								[Dom,80]
+								[Dom,80];
+              ftp ->
+                [Dom,21]
 						end;
 					[Dom,Port] ->
 						[Dom,toint(Port)]
