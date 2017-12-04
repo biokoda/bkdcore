@@ -3171,7 +3171,7 @@ ds_val({A,K},application) ->
 			V
 	end;
 ds_val(K,M) when is_map(M) ->
-	maps:get(K,M);
+	maps:get(K,M,undefined);
 ds_val(K,T) when is_integer(T); is_atom(T); is_reference(T) ->
 	case ets:lookup(T,K) of
 		[{_,V}] ->
