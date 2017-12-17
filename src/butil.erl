@@ -17,9 +17,6 @@
 % 						WEB FUNCTIONS
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_session(Seed) ->
-	PID = os:getpid(),
-	dec2hex(erlang:md5([crypto:rand_bytes(10), PID, term_to_binary(now()), Seed])).
 
 fbcookie(Secret,CV) ->
 	Lsig = [list_to_tuple(string:tokens(X,"=")) || X <- string:tokens(mochiweb_util:unquote(CV),"&")],
