@@ -2613,6 +2613,18 @@ remobj(Key,Val,[H|T],L) ->
 remobj(_,_,[],L) ->
 	L.
 
+extrobj(Key,Val,L) ->
+	extrobj(Key,Val,L,[]).
+extrobj(Key,Val,[H|T],L) ->
+	case ds_val(Key,H) of
+		Val ->
+			{H,T ++ L};
+		_ ->
+			extrobj(Key,Val,T,[H|L])
+	end;
+extrobj(_,_,[],_) ->
+	false.
+
 objtorec(A,Rec) ->
 	Def = recdef(Rec),
 	Elements = recfields(Rec),
