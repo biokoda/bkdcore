@@ -2613,6 +2613,18 @@ remobj(Key,Val,[H|T],L) ->
 remobj(_,_,[],L) ->
 	L.
 
+extrobj(Key,Val,L) ->
+	extrobj(Key,Val,L,[]).
+extrobj(Key,Val,[H|T],L) ->
+	case ds_val(Key,H) of
+		Val ->
+			{H,T ++ L};
+		_ ->
+			extrobj(Key,Val,T,[H|L])
+	end;
+extrobj(_,_,[],_) ->
+	false.
+
 objtorec(A,Rec) ->
 	Def = recdef(Rec),
 	Elements = recfields(Rec),
@@ -2869,17 +2881,21 @@ ip_to_int("::FFFF:"++IP) ->
 	ip_to_int(IP);
 ip_to_int(<<"::FFFF:",IP/binary>>) ->
 	ip_to_int(IP);
+ip_to_int({A,B,C,D}) ->
+	<<Int:32/integer-unsigned>> = <<(toint(A)):8/integer-unsigned, (toint(B)):8/integer-unsigned,
+					(toint(C)):8/integer-unsigned, (toint(D)):8/integer-unsigned>>,
+	Int;
+ip_to_int({A,B,C,D,E,F,G,H}) ->
+	<<Int:128/integer-unsigned>> = <<(toint(A)):16/integer-unsigned, (toint(B)):16/integer-unsigned,
+					(toint(C)):16/integer-unsigned, (toint(D)):16/integer-unsigned,(toint(E)):16/integer-unsigned,
+					(toint(F)):16/integer-unsigned,(toint(G)):16/integer-unsigned,(toint(H)):16/integer-unsigned>>,
+	Int;
 ip_to_int(IP) ->
 	case inet_parse:address(tolist(IP)) of
-		{ok,{A,B,C,D}} ->
-			<<Int:32/integer-unsigned>> = <<(toint(A)):8/integer-unsigned, (toint(B)):8/integer-unsigned,
-	        		(toint(C)):8/integer-unsigned, (toint(D)):8/integer-unsigned>>,
-			Int;
-		{ok,{A,B,C,D,E,F,G,H}} ->
-			<<Int:128/integer-unsigned>> = <<(toint(A)):16/integer-unsigned, (toint(B)):16/integer-unsigned,
-	        		(toint(C)):16/integer-unsigned, (toint(D)):16/integer-unsigned,(toint(E)):16/integer-unsigned,
-	        		(toint(F)):16/integer-unsigned,(toint(G)):16/integer-unsigned,(toint(H)):16/integer-unsigned>>,
-			Int;
+		{ok,{_,_,_,_} = T} ->
+			ip_to_int(T);
+		{ok,{_,_,_,_,_,_,_,_} = T} ->
+			ip_to_int(T);
 		X ->
 			exit({invalidip,X})
 	end.
