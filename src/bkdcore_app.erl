@@ -82,7 +82,7 @@ start(_Type, _Args) ->
 						false ->
 							Limit = []
 					end,
-					{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp, 
+					{ok, _} = ranch:start_listener(bkdcore_in, 10,ranch_tcp,
 						[{port, RpcPort}, {max_connections, infinity}|Limit],bkdcore_rpc, [])
 				end
 	end,
@@ -96,14 +96,14 @@ get_network_interface()->
 	case application:get_env(bkdcore,rpc_interface_address) of
 		{ok, Value} ->
 			case inet:parse_address(Value) of
-				{ok, IPAddress} -> 
+				{ok, IPAddress} ->
 					ok;
 				_ ->
 					{ok, {hostent, _, [], inet, _, [IPAddress]}} = inet:gethostbyname(Value)
 			end;
 		_ ->
 			case string:tokens(atom_to_list(node()), "@") of
-				["nonode","nohost"] -> 
+				["nonode","nohost"] ->
 					IPAddress = {127,0,0,1};
 				[_Name, Value] ->
 					case inet:parse_address(Value) of

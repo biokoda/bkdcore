@@ -5,6 +5,6 @@
             ]},
   {registered, [bkdcore_sup,bkdcore_rpc,bkdcore_mochi,bkdcore_task,bkdcore_geoip,bkdcore_cache]},
   {mod, {bkdcore_app, []}},
-  {applications, [kernel,stdlib,lager, crypto]},
+  {applications, [kernel,stdlib,lager, crypto, distreg,ranch]},
   {start_phases,[]}
  ]}.

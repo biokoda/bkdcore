@@ -14,15 +14,15 @@
 % -compile([export_all]).
 -define(CHUNKSIZE,16834).
 
-% RPC between nodes. Uses proc_lib directly instead of gen_server. 
+% RPC between nodes. Uses proc_lib directly instead of gen_server.
 % This gives us two important optimisations:
-% - We can batch together multiple calls in a single gen_tcp:send. 
+% - We can batch together multiple calls in a single gen_tcp:send.
 % - We can do term_to_binary on the caller process.
 % Made possible by using receive ... after 0 to combine calls.
 % And by manually putting together {self(),make_ref()}.
 
 % Large calls are supported. Every call is split into 16kB chunks.
-%  So sending multimegabyte data over RPC is fine and will not block other smaller calls 
+%  So sending multimegabyte data over RPC is fine and will not block other smaller calls
 %  for too long.
 
 call(Node,Msg) ->
@@ -334,8 +334,8 @@ loop(#dp{direction = tunnel} = P) ->
 			loop(P#dp{isolated = I});
 		X ->
 			lager:error("Received invalid msg ~p",[X])
-			% spawn(fun() -> timer:sleep(1000), 
-			% 	supervisor:delete_child(bkdcore_sup,{?MODULE,P#dp.connected_to,P#dp.iteration}) 
+			% spawn(fun() -> timer:sleep(1000),
+			% 	supervisor:delete_child(bkdcore_sup,{?MODULE,P#dp.connected_to,P#dp.iteration})
 			% end)
 	end;
 loop(P) ->
@@ -364,13 +364,13 @@ loop(P, ToSend, HaveSent, Timeout) ->
 				reply(From,{error,econnrefused}),
 				loop(P, ToSend, HaveSent, 0);
 			_ ->
-				loop(P#dp{calln = P#dp.calln + 1, callcount = P#dp.callcount+1}, 
+				loop(P#dp{calln = P#dp.calln + 1, callcount = P#dp.callcount+1},
 					[{P#dp.calln,init, Bin}|ToSend],
 					HaveSent, 0)
 		end;
 	{reply,E,Bin} ->
-		loop(P#dp{calln = P#dp.calln + 1, callcount = P#dp.callcount-1, 
-				executors = store_ex(E,P#dp.executors)}, 
+		loop(P#dp{calln = P#dp.calln + 1, callcount = P#dp.callcount-1,
+				executors = store_ex(E,P#dp.executors)},
 			[{P#dp.calln,init, Bin}|ToSend],
 			HaveSent, 0);
 	{decr_callcount,E} ->
@@ -436,7 +436,7 @@ loop(P, ToSend, HaveSent, Timeout) ->
 				loop(P, [], [], ?TIMEOUT);
 			_ when ToSend == [], HaveSent == [] ->
 				case ok of
-					_ when P#dp.permanent == false, P#dp.callcount == 0, 
+					_ when P#dp.permanent == false, P#dp.callcount == 0,
 							P#dp.direction == sender, P#dp.isolated == false ->
 						case P#dp.connected_to of
 							undefined ->
