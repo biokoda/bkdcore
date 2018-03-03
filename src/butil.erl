@@ -3131,7 +3131,7 @@ ds_rem(K,T) when is_tuple(T) ->
 	end;
 ds_rem(K,M) when is_map(M) ->
 	maps:remove(K,M);
-ds_rem(K,T) when is_integer(T); is_atom(T) ->
+ds_rem(K,T) when is_integer(T); is_atom(T); is_reference(T) ->
 	ets:delete(T,K),
 	T.
 
