@@ -3,7 +3,7 @@
 % file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -module(bkdcore_mochi).
 -behaviour(gen_server).
--export([register/0, register/1, print_info/0, start/0,start/1, stop/0, init/1, handle_call/3, 
+-export([register/0, register/1, print_info/0, start/0,start/1, stop/0, init/1, handle_call/3,
 		 handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([http_req/1,http_statreq/1]).
 
@@ -86,7 +86,7 @@ handle_cast({stop_mochiweb},P) ->
 handle_cast(_, P) ->
 	{noreply, P}.
 
-handle_info(_, P) -> 
+handle_info(_, P) ->
 	{noreply, P}.
 
 terminate(_, _) ->
@@ -101,34 +101,37 @@ init(Servers) ->
 	{ok,#bm{}}.
 
 http_statreq(Req) ->
-	case catch http_req(Req:get_header_value("host"),Req) of
+	case catch http_req(mochiweb_request:get_header_value("host",Req),Req) of
 		ok ->
 			ok;
 		{'EXIT',normal} ->
 			exit(normal);
 		_X ->
-			io:format("Http req ~p invalid response ~p~n", [{Req:get_header_value("host"),Req:get(path)},_X]),
-			Req:not_found()
-	end.	
+			io:format("Http req ~p invalid response ~p~n",
+				[{mochiweb_request:get_header_value("host",Req),
+				mochiweb_request:get(path,Req)},_X]),
+			mochiweb_request:not_found(Req)
+	end.
 
 http_req(Req) ->
 	%io:format("mochireq ~p~n", [Req:get_header_value("host")++Req:get(path)]),
-	case catch http_req(Req:get_header_value("host"),Req) of
-		ok ->			
+	case catch http_req(mochiweb_request:get_header_value("host",Req),Req) of
+		ok ->
 			ok;
 		{'EXIT',normal} ->
 			exit(normal);
 		_X ->
-			io:format("Http req ~p invalid response ~p~n", [{Req:get_header_value("host"),Req:get(path)},_X]),
-			Req:not_found()
+			io:format("Http req ~p invalid response ~p~n",
+				[{mochiweb_request:get_header_value("host",Req),mochiweb_request:get(path,Req)},_X]),
+			mochiweb_request:not_found(Req)
 	end.
- 
+
 http_req(Host, Req) ->
 	case catch apply(bkdcore_mochi_conf,mod,[Host]) of
 		{'EXIT',Err} ->
 			lager:error("trying to access domain ~p but got error ~p instead",[Host,Err]),
-			Req:respond({404, [{"Content-Type", "text/plain"}],
-           		 <<"Unknown host">>});
+			mochiweb_request:respond({404, [{"Content-Type", "text/plain"}],
+           		 <<"Unknown host">>},Req);
 		ExMod ->
 			apply(ExMod,out,[Req]),
 			ok

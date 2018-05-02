@@ -131,7 +131,7 @@ out(A,Fun) ->
 		true ->
 			out1(A,Fun(A#arg.appmoddata,A),yaws,undefined);
 		false ->
-			try Fun((tl(A:get(path))),A) of
+			try Fun((tl(mochiweb_request:get(path,A))),A) of
 				X ->
 					out1(A,X,mochi,undefined)
 			catch
@@ -154,7 +154,7 @@ out1(A,X,Srv,undefined) ->
 		{M,F} when is_atom(M), is_atom(F) ->
 			validate(A,X);
 		{content,Mime,Body} when Srv == mochi ->
-			A:respond({200,[{"Content-type",Mime}],Body});
+			mochiweb_request:respond({200,[{"Content-type",Mime}],Body},A);
 		_ ->
 			X
 	end;
@@ -198,21 +198,21 @@ validation_response(A,{error, Type, _Msg, _Param}, _ErrPath, _ErrCookie,true) wh
 				Path ->
 					true
 			end,
-			A:respond({302,lists:flatten([set_msg_cookie(A, "loginaction", #pgerr{docid = tobin(Path)}),
+			mochiweb_request:respond({302,lists:flatten([set_msg_cookie(A, "loginaction", #pgerr{docid = tobin(Path)}),
 							{"Location","/login"}]),
-					   <<>>})
+					   <<>>},A)
 	end;
 validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 	case X of
 		R when R#pgr.status < 226 ->
 			case LoginReq of
 				true ->
-					A:respond({R#pgr.status,lists:flatten([kill_cookie(A,"loginaction"),R#pgr.headers,{"Content-type",R#pgr.mime},R#pgr.cookies]),R#pgr.content});
+					mochiweb_request:respond({R#pgr.status,lists:flatten([kill_cookie(A,"loginaction"),R#pgr.headers,{"Content-type",R#pgr.mime},R#pgr.cookies]),R#pgr.content},A);
 				_ ->
-					A:respond({R#pgr.status,lists:flatten([{"Content-Type",R#pgr.mime},
+					mochiweb_request:respond({R#pgr.status,lists:flatten([{"Content-Type",R#pgr.mime},
 																				{"Content-Length",iolist_size(R#pgr.content)},
 																				R#pgr.headers,R#pgr.cookies]),
-												R#pgr.content})
+												R#pgr.content},A)
 			end;
 		R when R#pgr.status < 400, is_record(A,arg) ->
 			case R#pgr.content of
@@ -228,15 +228,15 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 			[R#pgr.cookies,{status, R#pgr.status},{header, [$L,$o,$c,$a,$t,$i,$o,$n,$:,$\s|Location]}];
 		R when R#pgr.status < 400 ->
 			% io:format("Calling flatten on ~p~n", [[{"Location",Location}|R#pgr.cookies]]),
-			A:respond({R#pgr.status,lists:flatten([{"Location",R#pgr.content},R#pgr.cookies]),<<>>});
+			mochiweb_request:respond({R#pgr.status,lists:flatten([{"Location",R#pgr.content},R#pgr.cookies]),<<>>},A);
 		R when R#pgr.status > 400, is_record(A,arg) ->
 			[{status, R#pgr.status},{content, "text/html", R#pgr.content}];
 		R when R#pgr.status > 400 ->
-			A:respond({R#pgr.status,lists:flatten(R#pgr.headers),R#pgr.content});
+			mochiweb_request:respond({R#pgr.status,lists:flatten(R#pgr.headers),R#pgr.content},A);
 		{error, invalid_session, _, _} when is_record(A,arg), LoginReq == false ->
 			[{status, 403},{content, "text/plain",<<"403 forbidden">>}];
 		{error, invalid_session, _, _} when LoginReq == false ->
-			A:respond({403,[], <<"403 forbidden">>});
+			mochiweb_request:respond({403,[], <<"403 forbidden">>},A);
 		{error, Type, Msg, Param} when is_record(A,arg), ErrPath /= undefined ->
 			case ErrCookie of
 				true ->
@@ -248,21 +248,21 @@ validation_response(A,X,ErrPath,ErrCookie,LoginReq) ->
 		{error, Type, Msg, Param} when ErrPath /= undefined ->
 			case ErrCookie of
 				true ->
-					A:respond({302,lists:flatten([set_error_cookie(A, #pgerr{docid = tobin(Type), msg = Msg, param = Param}),
+					mochiweb_request:respond({302,lists:flatten([set_error_cookie(A, #pgerr{docid = tobin(Type), msg = Msg, param = Param}),
 									{"Location",ErrPath}]),
-							   <<>>});
+							   <<>>},A);
 				false ->
 					% {redirect_local,{any_path,ErrPath}}
-					A:respond({302,[{"Location",ErrPath}], <<>>})
+					mochiweb_request:respond({302,[{"Location",ErrPath}], <<>>},A)
 			end;
 		_ when is_record(A,arg) ->
-			A:respond({500, [{"Content-Type", "text/plain"}],
-                         <<"Internal Server Error">>});
+			mochiweb_request:respond({500, [{"Content-Type", "text/plain"}],
+                         <<"Internal Server Error">>},A);
 		{error,undefined,undefined,undefined} ->
-			A:respond({500, [{"Content-Type", "text/plain"}],
-                         <<"Internal Server Error">>});
+			mochiweb_request:respond({500, [{"Content-Type", "text/plain"}],
+                         <<"Internal Server Error">>},A);
 		X ->
-			A:respond({400,[],X#pgr.content})
+			mochiweb_request:respond({400,[],X#pgr.content},A)
 	end.
 
 validate_request(A,{M,F}) ->
@@ -346,7 +346,7 @@ get_session_cookie(#arg{} = A) ->
 			end
 	end;
 get_session_cookie(R) ->
-	case R:get_cookie_value("session") of
+	case mochiweb_request:get_cookie_value("session",R) of
 		undefined ->
 			throw(invalid_session);
 		X ->
@@ -358,7 +358,7 @@ get_session_cookie(R) ->
 			end
 	end.
 get_session(R) ->
-	case R:get_cookie_value("session") of
+	case mochiweb_request:get_cookie_value("session",R) of
 		undefined ->
 			throw(invalid_session);
 		X ->
@@ -370,7 +370,7 @@ get_session(R) ->
 			end
 	end.
 try_session(R) ->
-	case R:get_cookie_value("session") of
+	case mochiweb_request:get_cookie_value("session",R) of
 		undefined ->
 			undefined;
 		X ->
@@ -426,7 +426,7 @@ get_cookie(#arg{} = A, Name) ->
 			X
 	end;
 get_cookie(R,N) ->
-	case R:get_cookie_value(N) of
+	case mochiweb_request:get_cookie_value(N,R) of
 		"none" ->
 			undefined;
 		X ->
@@ -436,18 +436,18 @@ kill_cookie(#arg{} = A,Name) ->
 	yaws_api:setcookie(Name, "none", "/", rfctime(sec()-10),
 								cookie_domain((A#arg.headers)#headers.host));
 kill_cookie(R,N) ->
-	mochiweb_cookies:cookie(N,"none",[{path, "/"},{max_age,-10},{domain,cookie_domain(R:get_header_value("host"))}]).
+	mochiweb_cookies:cookie(N,"none",[{path, "/"},{max_age,-10},{domain,cookie_domain(mochiweb_request:get_header_value("host",R))}]).
 
 set_cookie(#arg{} = A,Name,Val,SecsValid, Path) ->
 	yaws_api:setcookie(Name, Val, Path, rfctime(sec() + SecsValid),
 								cookie_domain((A#arg.headers)#headers.host));
 set_cookie(R,N,V,Secs,Path) ->
-	mochiweb_cookies:cookie(N,V,[{path, Path},{max_age,Secs},{domain,cookie_domain(R:get_header_value("host"))}]).
+	mochiweb_cookies:cookie(N,V,[{path, Path},{max_age,Secs},{domain,cookie_domain(mochiweb_request:get_header_value("host",R))}]).
 set_cookie(#arg{} = A,Name,Val,SecsValid) ->
 	yaws_api:setcookie(Name, Val,	"/", rfctime(sec() + SecsValid),
 								cookie_domain((A#arg.headers)#headers.host));
 set_cookie(R,N,V,Secs) ->
-	mochiweb_cookies:cookie(N,V,[{path, "/"},{max_age,Secs},{domain,cookie_domain(R:get_header_value("host"))}]).
+	mochiweb_cookies:cookie(N,V,[{path, "/"},{max_age,Secs},{domain,cookie_domain(mochiweb_request:get_header_value("host",R))}]).
 
 add_params_mochiweb_request(Items)->
 	erlang:put(mochiweb_request_qs, Items).
@@ -690,14 +690,14 @@ check_cachecall(Line) ->
 sendfile(#arg{} = _A,_,Path) ->
 	{page,Path};
 sendfile(R,Project,Path) ->
-	R:serve_file(Path,project_rootpath() ++ "/static/" ++ Project).
+	mochiweb_request:serve_file(Path,project_rootpath() ++ "/static/" ++ Project,R).
 
 host(#arg{} = A) ->
 	check_cachecall(?LINE),
 	(A#arg.headers)#headers.host;
 host(R) ->
 	check_cachecall(?LINE),
-	R:get_header_value("host").
+	mochiweb_request:get_header_value("host",R).
 
 peer_ip(#arg{} = A) ->
 	check_cachecall(?LINE),
@@ -709,7 +709,7 @@ peer_ip(#arg{} = A) ->
 	end;
 peer_ip(R) ->
 	check_cachecall(?LINE),
-	R:get(peer).
+	mochiweb_request:get(peer,R).
 
 qvar([_|_] = Name,A) ->
 	qvar(A,Name);
@@ -723,7 +723,7 @@ qvar(#arg{} = Arg,Name) ->
 	end;
 qvar(Req,Name) ->
 	check_cachecall(?LINE),
-	case proplists:get_value(Name,Req:parse_qs()) of
+	case proplists:get_value(Name,mochiweb_request:parse_qs(Req)) of
 		undefined ->
 			"";
 		X ->
@@ -742,9 +742,9 @@ qmvar(#arg{} = Arg,Name) ->
 	end;
 qmvar(Req,Name) ->
 	check_cachecall(?LINE),
-	case proplists:get_value(Name,Req:parse_qs()) of
+	case proplists:get_value(Name,mochiweb_request:parse_qs(Req)) of
 		undefined ->
-			throw({invalid_query,Req:get(path),Name});
+			throw({invalid_query,mochiweb_request:get(path,Req),Name});
 		X ->
 			X
 	end.
@@ -768,11 +768,11 @@ pgvar(R,N) ->
 	check_cachecall(?LINE),
 	case qvar(R,N) of
 		"" ->
-			case R:get(method) of
+			case mochiweb_request:get(method,R) of
 				'POST' ->
-					case R:get_primary_header_value("content-type") of
+					case mochiweb_request:get_primary_header_value("content-type",R) of
 		            	"application/x-www-form-urlencoded" ->
-							case proplists:get_value(N,R:parse_post()) of
+							case proplists:get_value(N,mochiweb_request:parse_post(R)) of
 								undefined ->
 									"";
 								X ->
@@ -806,7 +806,7 @@ raw_path(R) when element(1,R) == http_req ->
 	end;
 raw_path(R) ->
 	check_cachecall(?LINE),
-	R:get(raw_path).
+	mochiweb_request:get(raw_path,R).
 
 userip(#arg{} = Arg) ->
 	check_cachecall(?LINE),
@@ -824,7 +824,7 @@ userip(#arg{} = Arg) ->
 	end;
 userip(R) ->
 	check_cachecall(?LINE),
-	toipv4(R:get(peer)).
+	toipv4(mochiweb_request:get(peer,R)).
 toipv4("::ffff:"++IP) ->
 	IP;
 toipv4(X) ->
@@ -842,13 +842,13 @@ body(#arg{} = A) ->
 	A#arg.clidata;
 body(A) ->
 	check_cachecall(?LINE),
-	A:recv_body().
+	mochiweb_request:recv_body(A).
 body(#arg{} = A,Limit) when byte_size(A#arg.clidata) < Limit ->
 	check_cachecall(?LINE),
 	A#arg.clidata;
 body(A,Limit) ->
 	check_cachecall(?LINE),
-	A:recv_body(Limit).
+	mochiweb_request:recv_body(Limit,A).
 
 
 
