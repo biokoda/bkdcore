@@ -18,6 +18,7 @@ start(_Type, _Args) ->
 	application:start(asn1),
 	application:start(distreg),
 	application:ensure_all_started(crypto),
+
 	Params = [begin
 			case application:get_env(bkdcore,K) of
 				{ok,V} ->

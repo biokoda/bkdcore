@@ -20,9 +20,9 @@ onload() ->
 % 								 {typeinfo,{M,F,A}}]}]
 start(Opts) ->
 	save_opts(Opts),
-	application:start(bkdcore,permanent).
+	application:ensure_all_started(bkdcore,permanent).
 start() ->
-	application:start(bkdcore,permanent).
+	application:ensure_all_started(bkdcore,permanent).
 
 save_opts([{cfg,Name,Opts}|T]) ->
 	case application:get_env(bkdcore,cfgfiles) of
@@ -108,7 +108,7 @@ node_address() ->
 	node_address(node_name()).
 node_address(N) ->
 	butil:ds_val({address,butil:tobin(N)},bkdcore_nodes).
-	
+
 node_membership() ->
 	node_membership(node_name()).
 is_member(Grp) ->
@@ -182,7 +182,7 @@ is_uninitialized() ->
 
 nodelist() ->
 	[Name || {{realname,_},Name} <- ets:select(bkdcore_nodes,[{{'$1','$2'},[{'==',{element,1,'$1'},realname}], ['$_']}])].
-		
+
 nodelist(G) ->
 	case butil:ds_val({nodes,butil:toatom(G)},bkdcore_groups) of
 		undefined ->
@@ -193,17 +193,17 @@ nodelist(G) ->
 
 % Mod - atom name of module
 % T can be:
-% 	- [{FuncNameAtom,FuncValueTerm},...] 
+% 	- [{FuncNameAtom,FuncValueTerm},...]
 % 	Translates to:
-% 		Mod:FundNameAtom() -> 
+% 		Mod:FundNameAtom() ->
 %			 FuncValue
 
-%   - [{FuncNameAtom,FuncParameter,FuncValue}] 
+%   - [{FuncNameAtom,FuncParameter,FuncValue}]
 % 		Translates to:
-% 			Mod:FuncNameAtom(FuncParameter) -> 
+% 			Mod:FuncNameAtom(FuncParameter) ->
 %					FuncValue
 
-%   - [{FuncNameAtom,multihead,[{FuncParam1,FuncVal1},{FuncParam2,FuncVal2},{any,undefined}]}] 
+%   - [{FuncNameAtom,multihead,[{FuncParam1,FuncVal1},{FuncParam2,FuncVal2},{any,undefined}]}]
 % 		Translates to:
 %				FuncNameAtom(FuncParam1) ->
 %					FuncVal1;
@@ -222,9 +222,9 @@ mkmodule(Mod, T, Ret) ->
 		       [erl_syntax:list([erl_syntax:arity_qualifier(erl_syntax:atom(Name),erl_syntax:integer(0)) || {Name,_} <- T]++
 										       	[erl_syntax:arity_qualifier(erl_syntax:atom(Name),erl_syntax:integer(1)) || {Name,_,_} <- T])]),
 	Funs = [erl_syntax:function(erl_syntax:atom(Name),[erl_syntax:clause([], none, [erl_syntax:abstract(Vals)])]) || {Name,Vals} <- T],
-	Funs1 = [erl_syntax:function(erl_syntax:atom(Name),[erl_syntax:clause([erl_syntax:abstract(Param)], none, [erl_syntax:abstract(Vals)])]) 
+	Funs1 = [erl_syntax:function(erl_syntax:atom(Name),[erl_syntax:clause([erl_syntax:abstract(Param)], none, [erl_syntax:abstract(Vals)])])
 						|| {Name,Param,Vals} <- T, Param /= multihead],
-	Funs2 = [begin 
+	Funs2 = [begin
 				erl_syntax:function(erl_syntax:atom(Name),[
 								begin
 									case Param of
@@ -234,7 +234,7 @@ mkmodule(Mod, T, Ret) ->
 											erl_syntax:clause([erl_syntax:abstract(Param)], none, [erl_syntax:abstract(Vals)])
 									end
 								end
-								|| {Param,Vals} <- ParamVals]) 
+								|| {Param,Vals} <- ParamVals])
 					 end
 						|| {Name,multihead, ParamVals} <- T],
 	L = [erl_syntax:revert(X) || X <- [Modatr,Export|Funs]++Funs1++Funs2],
@@ -274,5 +274,3 @@ mime_from_ext(E1) ->
 		X ->
 			X
 	end.
-
-
