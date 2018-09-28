@@ -3,7 +3,7 @@
 % file, You can obtain one at http://mozilla.org/MPL/2.0/.
 -module(bkdcore_cache).
 -behaviour(gen_server).
--export([register/0,reload/0, print_info/0, start/0, stop/0, init/1, handle_call/3, 
+-export([register/0,reload/0, print_info/0, start/0, stop/0, init/1, handle_call/3,
 		 handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([is_flood/3,ban_ip/2,is_banned/2, lookup_insert/4, clear/0,
 	     member/2,lookup/2,store/4,delete/2,modify/5,inc_counter/2]).
@@ -11,12 +11,13 @@
 % -define(DEBUG,true).
 -include_lib("../include/bkdcore.hrl").
 
+% -compile([{parse_transform, lager_transform}]).
 
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
+%
 % 				INTERVALS SHOULD BE: 1,5,30,60,180,600,etc
-% 
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % IP of user to protect from
@@ -34,7 +35,7 @@ is_flood(IP,Context,Interval) ->
 
 clear() ->
 	gen_server:call(?MODULE,{clear}).
-	
+
 ban_ip(IP,Context) ->
 	is_flood(IP,Context,60 * 60).
 is_banned(IP,Context) ->
@@ -156,7 +157,7 @@ handle_call({print_info}, _, Ets) ->
 handle_call(stop, _, P) ->
 	{stop, shutdown, stopped, P}.
 
-		
+
 handle_cast({insert, Timeout, {Key,Val}}, P) ->
 	case ets:member(P, Key) of
 		true ->
@@ -187,15 +188,32 @@ handle_cast({delete, Key}, Ets) ->
 handle_cast(_, P) ->
 	{noreply, P}.
 
+flat_tm() ->
+	{MS,S,_} = os:timestamp(),
+	MS*1000000000000 + S*1000000.
+
 instime(Timeout,Key) ->
-	put(cache_times, butil:ds_add(Timeout*1000000+butil:flatnow(),{Key,Timeout},get(cache_times))).
+	% Time = Timeout*1000000+butil:flatnow(),
+	Time = Timeout*1000000 + flat_tm(),
+	case gb_trees:lookup(Time,get(cache_times)) of
+		none ->
+			put(cache_times, butil:ds_add(Time,{Key,Timeout},get(cache_times)));
+		{value,[_|_] = KVS} ->
+			put(cache_times, gb_trees:enter(Time,[{Key,Timeout}|KVS],get(cache_times)));
+		{value,{K,Int}} ->
+			put(cache_times, gb_trees:enter(Time,[{K,Int},{Key,Timeout}],get(cache_times)))
+	end.
 
 prune() ->
 	T = get(cache_times),
 	case gb_trees:size(T) > 0 of
 		true ->
-			Now = butil:flatnow(),
+			Now = flat_tm(),
 			case gb_trees:smallest(T) of
+				{Time,[_|_] = KVS} when Time =< Now ->
+					put(cache_times, butil:ds_rem(Time,T)),
+					[val_timeout(Key,Interval) || {Key,Interval} <- KVS],
+					prune();
 				{Time,{Key,Interval}} when Time =< Now ->
 					put(cache_times, butil:ds_rem(Time,T)),
 					val_timeout(Key,Interval),
@@ -257,14 +275,14 @@ updateval(Key,Fun,N,V) ->
 		NV ->
 			ets:update_element(cachetable,Key,{4,NV})
 	end.
-		
+
 handle_info({prune}, P) ->
 	erlang:send_after(1000,self(),{prune}),
 	prune(),
 	{noreply, P};
-handle_info(_, P) -> 
+handle_info(_, P) ->
 	{noreply, P}.
-	
+
 terminate(_, _) ->
 	ok.
 code_change(_, P, _) ->
@@ -273,11 +291,11 @@ init([]) ->
 	erlang:send_after(1000,self(),{prune}),
 	put(cache_times,butil:ds_new(gb_tree)),
 	{ok, ets:new(cachetable, [named_table,public])}.
-	
+
 
 register() ->
-	supervisor:start_child(bkdcore_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
-	
+	supervisor:start_child(bkdweb_sup, {?MODULE, {?MODULE, start, []}, permanent, 100, worker, [?MODULE]}).
+
 reload() ->
 	code:purge(?MODULE),
 	code:load_file(?MODULE).
@@ -289,4 +307,4 @@ stop() ->
 	gen_server:call(?MODULE, stop).
 
 print_info() ->
-	gen_server:call(?MODULE, {print_info}).	
+	gen_server:call(?MODULE, {print_info}).
