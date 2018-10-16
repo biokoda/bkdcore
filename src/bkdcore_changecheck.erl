@@ -240,12 +240,23 @@ startup_node() ->
 	traverse_paths(butil:ds_new(dict),folders(),startupnode).
 
 traverse_paths(Dict,[ApDep|T], Op) when ApDep == "deps"; ApDep == "apps" ->
+	Rebar3 = application:get_env(bkdcore,libdir,false),
 	case Op of
 		% touchcfg ->
 		% 	traverse_paths(T,Op);
 		make when ApDep == "deps" ->
 			traverse_paths(Dict,T,Op);
-		_ ->
+		_ when Rebar3 /= false andalso ApDep == "apps" ->
+			{ok,Apps} = file:list_dir("apps"),
+			{ok, Rootpath} = application:get_env(bkdcore,libdir),
+			L = [begin
+				[lists:concat([Rootpath,"/",App,"/ebin"]),
+					lists:concat([Rootpath,"/",App,"/src"]),
+				lists:concat(["apps/",App,"/dtl"])]
+			end || App <- Apps, hd(App) /= $.],
+			{ok,NDict} = traverse_paths(Dict,L,Op),
+			traverse_paths(NDict,T,Op);
+		_ when ApDep == "deps" ->
 			case application:get_env(bkdcore,libdir) of
 				{ok,Rootpath} ->
 					ok;
@@ -269,7 +280,7 @@ traverse_paths(Dict,[ApDep|T], Op) when ApDep == "deps"; ApDep == "apps" ->
 										_ ->
 											[lists:concat([Rootpath,"/",X,"/ebin"])]
 									end;
-								_ ->
+								"apps" ->
 									[lists:concat([Rootpath,"/",X,"/ebin"]),
 								 		lists:concat([Rootpath,"/",X,"/src"]),
 							 		lists:concat([Rootpath,"/",X,"/dtl"])]
@@ -411,10 +422,10 @@ reload(Path,Name,Op) ->
 						_ ->
 							EbinPath = filename:join(lists:reverse(tl(lists:reverse(filename:split(Path)))))++"/ebin/"
 					end,
-					lager:info("DTL changed ~p, saving to=~p~n", [Path ++ "/" ++ Root,EbinPath]),
+					lager:info("DTL changed ~p, saving to=~p~n", [Path ++ "/" ++ Name,EbinPath]),
 					filelib:ensure_dir(EbinPath),
-					case erlydtl:compile(Path ++ "/" ++ Name, list_to_atom(Root),
-									[{out_dir,EbinPath}]) of
+					case erlydtl:compile_file(Path ++ "/" ++ Name, list_to_atom(Root),
+									[{out_dir,EbinPath},debug_info, return]) of
 						ok ->
 							case Op of
 								make ->
@@ -423,6 +434,8 @@ reload(Path,Name,Op) ->
 									growl(io_lib:format("Compiled ~p~n", [Path ++ "/" ++ Name]),"success")
 							end;
 						{ok,_} ->
+							ok;
+						{ok,_,_} ->
 							ok;
 						X ->
 							lager:error("Unable to compile dtl ~p~n", [X]),
