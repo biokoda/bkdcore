@@ -256,7 +256,7 @@ traverse_paths(Dict,[ApDep|T], Op) when ApDep == "deps"; ApDep == "apps" ->
 			end || App <- Apps, hd(App) /= $.],
 			{ok,NDict} = traverse_paths(Dict,L,Op),
 			traverse_paths(NDict,T,Op);
-		_ when ApDep == "deps" ->
+		_ ->
 			case application:get_env(bkdcore,libdir) of
 				{ok,Rootpath} ->
 					ok;
