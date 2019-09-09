@@ -225,6 +225,9 @@ init(Ref, Socket, Transport, _Opts) ->
 	loop(#dp{direction = receiver,sock = Socket, transport = Transport}).
 	% gen_server:enter_loop(?MODULE, [], #dp{direction = receiver,sock = Socket, transport = Transport}).
 
+connect_offset() ->
+	application:get_env(bkdcore,connect_offset,0).
+
 init([{?MODULE,_ConnectedTo,Iteration},P]) ->
 	{ok,P#dp{iteration = Iteration, respawn_timer = 0}};
 init([From,Node]) ->
@@ -238,7 +241,7 @@ init([From,Node]) ->
 		ok ->
 			case bkdcore:node_address(Node) of
 				{IP,Port} ->
-					case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,once},
+					case gen_tcp:connect(IP,Port + connect_offset(),[{packet,4},{keepalive,true},binary,{active,once},
 							{send_timeout,2000},{nodelay,true}],2000) of
 						{ok,S} ->
 							case gen_tcp:send(S,bkdcore:rpccookie(Node)) of
@@ -477,7 +480,7 @@ store_ex(E,L) ->
 connect_to(Home,Node) ->
 	case (catch bkdcore:node_address(Node)) of
 		{IP,Port} when is_list(IP), is_integer(Port) ->
-			case gen_tcp:connect(IP,Port,[{packet,4},{keepalive,true},binary,{active,false},
+			case gen_tcp:connect(IP,Port + connect_offset(),[{packet,4},{keepalive,true},binary,{active,false},
 					{send_timeout,2000},{nodelay,true}],2000) of
 				{ok,S} ->
 					ok = gen_tcp:send(S,bkdcore:rpccookie(Node)),
