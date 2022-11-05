@@ -3,17 +3,17 @@ all: deps compile
 .PHONY: rel deps
 
 compile:
-	./rebar compile
+	rebar3 compile
 
 recompile:
-	./rebar update-deps
-	./rebar compile
+	rebar3 update-deps
+	rebar3 compile
 
 update:
-	./rebar update-deps
+	rebar3 update-deps
 
 deps:
-	./rebar get-deps
+	rebar3 get-deps
 
 clean:
-	./rebar clean
+	rebar3 clean

@@ -3036,14 +3036,14 @@ hash(String, Salt, Iterations, OutKeyLen) ->
 	Res.
 
 cipher(BlockIndex, MaxBlock,Out, Salt, String, Iterations) when BlockIndex =< MaxBlock ->
-	B = crypto:hmac(sha256,<<Salt/binary, BlockIndex:32>>, String),
+	B = crypto:mac(hmac, sha256,<<Salt/binary, BlockIndex:32>>, String),
 	Crypted = xorloop(Iterations, B, B, String),
 	cipher(BlockIndex+1, MaxBlock, <<Out/binary, Crypted/binary>>, Salt, String, Iterations);
 cipher(_, _, Out, _, _, _) ->
 	Out.
 
 xorloop(N, Running, B, String) when N > 1 ->
-	NB = crypto:hmac(sha256,B, String),
+	NB = crypto:mac(hmac, sha256,B, String),
 	xorloop(N-1, xorbinary(Running, NB), NB, String);
 xorloop(_, Out,_,_) ->
 	Out.
