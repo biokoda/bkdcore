@@ -7,8 +7,8 @@
 -endif.
 -compile(export_all).
 % -define(DEBUG,true).
--include_lib("../include/bkdcore.hrl").
--include_lib("../include/emysql.hrl").
+-include("bkdcore.hrl").
+-include("emysql.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 

@@ -5,7 +5,7 @@
 -export([conftypes/0,reconfigure/0]).
 -export([start_lager/0]).
 -export([restart_lager/0]).
--include_lib("../include/bkdcore.hrl").
+-include("bkdcore.hrl").
 
 -compile([{parse_transform, lager_transform}]).
 

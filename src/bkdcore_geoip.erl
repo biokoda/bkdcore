@@ -7,7 +7,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([lookup/1, update_db/1]).
 -include_lib("kernel/include/file.hrl").
--include_lib("../include/bkdcore.hrl").
+-include("bkdcore.hrl").
 -compile({parse_transform,lager_transform}).
 -compile(export_all).
 

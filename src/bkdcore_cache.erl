@@ -9,7 +9,7 @@
 	     member/2,lookup/2,store/4,delete/2,modify/5,inc_counter/2]).
 -include_lib("kernel/include/file.hrl").
 % -define(DEBUG,true).
--include_lib("../include/bkdcore.hrl").
+-include("bkdcore.hrl").
 
 % -compile([{parse_transform, lager_transform}]).
 
